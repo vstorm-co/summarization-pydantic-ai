@@ -28,7 +28,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --python ${{ matrix.python-version }} --group lint
+        run: uv sync --python ${{ matrix.python-version }} --all-extras
 
       - name: Run ruff format check
         run: uv run ruff format --check
@@ -49,7 +49,7 @@ jobs:
         run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --all-extras --group lint
+        run: uv sync --all-extras
 
       - name: Run Pyright
         run: uv run pyright
@@ -74,7 +74,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --python ${{ matrix.python-version }} --all-extras --group dev
+        run: uv sync --python ${{ matrix.python-version }} --all-extras
 
       - name: Run tests with coverage
         run: |

@@ -3713,56 +3713,42 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+dev = [
+    { name = "build" },
+    { name = "coverage" },
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings", extra = ["python"] },
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
 tiktoken = [
     { name = "tiktoken" },
 ]
 
-[package.dev-dependencies]
-dev = [
-    { name = "build" },
-    { name = "coverage" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-]
-docs = [
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-    { name = "mkdocstrings", extra = ["python"] },
-]
-lint = [
-    { name = "mypy" },
-    { name = "pyright" },
-    { name = "ruff" },
-]
-
 [package.metadata]
 requires-dist = [
+    { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "coverage", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "mkdocs", marker = "extra == 'dev'", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", marker = "extra == 'dev'", specifier = ">=9.5.0" },
+    { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.27.0" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pydantic-ai", specifier = ">=0.1.0" },
+    { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=7.0.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "tiktoken", marker = "extra == 'tiktoken'", specifier = ">=0.5.0" },
 ]
-provides-extras = ["tiktoken"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "build", specifier = ">=1.0.0" },
-    { name = "coverage", specifier = ">=7.0.0" },
-    { name = "pre-commit", specifier = ">=4.0.0" },
-    { name = "pytest", specifier = ">=9.0.0" },
-    { name = "pytest-asyncio", specifier = ">=0.23.0" },
-    { name = "pytest-cov", specifier = ">=7.0.0" },
-]
-docs = [
-    { name = "mkdocs", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", specifier = ">=9.5.0" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27.0" },
-]
-lint = [
-    { name = "mypy", specifier = ">=1.0.0" },
-    { name = "pyright", specifier = ">=1.1.400" },
-    { name = "ruff", specifier = ">=0.8.0" },
-]
+provides-extras = ["tiktoken", "dev"]
 
 [[package]]
 name = "temporalio"
