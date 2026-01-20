@@ -113,17 +113,13 @@ class TestSlidingWindowProcessor:
     def test_should_trim_no_trigger(self):
         """Test that no trimming happens without trigger."""
         processor = SlidingWindowProcessor(trigger=None)
-        messages: list[ModelMessage] = [
-            ModelRequest(parts=[UserPromptPart(content="Hello")])
-        ] * 100
+        messages: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="Hello")])] * 100
         assert not processor._should_trim(messages, 100000)
 
     def test_should_trim_message_trigger(self):
         """Test trimming triggers on message count."""
         processor = SlidingWindowProcessor(trigger=("messages", 10))
-        messages: list[ModelMessage] = [
-            ModelRequest(parts=[UserPromptPart(content="Hello")])
-        ] * 15
+        messages: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="Hello")])] * 15
         assert processor._should_trim(messages, 100)
 
     def test_should_trim_token_trigger(self):
@@ -249,9 +245,7 @@ class TestSlidingWindowProcessor:
             trigger=("messages", 5),
             keep=("messages", 10),  # Keep more than we have
         )
-        messages: list[ModelMessage] = [
-            ModelRequest(parts=[UserPromptPart(content="Hello")])
-        ] * 6
+        messages: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="Hello")])] * 6
         result = await processor(messages)
         # Should return as-is since we can't cut anything meaningful
         assert len(result) == 6
@@ -372,9 +366,7 @@ class TestSlidingWindowProcessor:
         processor = SlidingWindowProcessor(
             trigger=[("messages", 100), ("tokens", 50)],  # tokens will trigger first
         )
-        messages: list[ModelMessage] = [
-            ModelRequest(parts=[UserPromptPart(content="Hello")])
-        ] * 10
+        messages: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="Hello")])] * 10
         # Only 10 messages but above token threshold
         assert processor._should_trim(messages, 100)
 
