@@ -1,0 +1,94 @@
+site_name: summarization-pydantic-ai
+site_description: Automatic conversation summarization for pydantic-ai agents
+site_url: https://vstorm-co.github.io/summarization-pydantic-ai/
+repo_url: https://github.com/vstorm-co/summarization-pydantic-ai
+repo_name: vstorm-co/summarization-pydantic-ai
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Roboto
+    code: Roboto Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.footer
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
+    - content.code.copy
+    - content.code.annotate
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: true
+            show_root_heading: true
+            members_order: source
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - admonition
+  - tables
+  - attr_list
+  - md_in_html
+  - toc:
+      permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/vstorm-co/summarization-pydantic-ai
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/summarization-pydantic-ai/
+
+nav:
+  - summarization-pydantic-ai:
+    - index.md
+    - installation.md
+    - changelog.md
+    - getting-help.md
+  - Documentation:
+    - Core Concepts:
+      - concepts/index.md
+      - concepts/processor.md
+      - concepts/sliding-window.md
+      - concepts/triggers.md
+  - Examples:
+    - examples/index.md
+    - examples/basic-usage.md
+    - examples/advanced.md
+  - API Reference:
+    - api/index.md
+    - api/processor.md
+    - api/sliding-window.md
+    - api/types.md
