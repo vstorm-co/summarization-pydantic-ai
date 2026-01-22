@@ -1,7 +1,7 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.0.1"
-description = "Automatic conversation summarization for pydantic-ai agents"
+version = "0.0.2"
+description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
