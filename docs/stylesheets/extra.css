@@ -1,49 +1,116 @@
-/* Pink theme customization */
+/* ============================================
+   summarization-pydantic-ai Documentation Styles
+   Clean, minimal - inspired by pydantic-deep
+   ============================================ */
+
+/* --------------------------------------------
+   Theme Colors
+   -------------------------------------------- */
 :root {
-  --md-primary-fg-color: #E92063;
-  --md-primary-fg-color--light: #EC4B81;
-  --md-primary-fg-color--dark: #C4185D;
-  --md-accent-fg-color: #E92063;
+  --md-primary-fg-color: #e91e63;
+  --md-primary-fg-color--light: #f48fb1;
+  --md-primary-fg-color--dark: #c2185b;
+  --md-accent-fg-color: #ff4081;
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #E92063;
-  --md-primary-fg-color--light: #EC4B81;
-  --md-primary-fg-color--dark: #C4185D;
-  --md-accent-fg-color: #E92063;
+  --md-primary-fg-color: #e91e63;
+  --md-primary-fg-color--light: #f48fb1;
+  --md-primary-fg-color--dark: #c2185b;
+  --md-accent-fg-color: #ff4081;
 }
 
-/* Announcement bar styling */
+/* --------------------------------------------
+   Announcement Bar
+   -------------------------------------------- */
 .md-banner {
-  background-color: var(--md-primary-fg-color);
+  background: #1e1e2e;
 }
 
 .md-banner a {
-  color: white;
+  color: #f8f8f2 !important;
 }
 
-/* Code block styling */
-.highlight code {
-  font-size: 0.85em;
-}
-
-/* Table styling */
-.md-typeset table:not([class]) {
-  font-size: 0.85em;
-}
-
-/* Navigation styling */
-.md-nav__link--active {
+.md-banner a:hover {
   color: var(--md-primary-fg-color) !important;
 }
 
-/* Footer styling */
-.md-footer {
-  margin-top: 2rem;
+/* --------------------------------------------
+   Typography
+   -------------------------------------------- */
+.md-typeset h1 {
+  font-weight: 700;
+  color: var(--md-primary-fg-color);
 }
 
-/* Admonition styling */
-.md-typeset .admonition,
-.md-typeset details {
-  font-size: 0.85em;
+/* Center the main title on index page */
+.md-content h1[id="context-management-for-pydantic-ai"] {
+  text-align: center;
+  font-size: 2.5rem;
+  margin-top: 0;
+}
+
+/* --------------------------------------------
+   Code Blocks
+   -------------------------------------------- */
+.md-typeset pre {
+  border-radius: 6px;
+}
+
+.md-typeset code {
+  border-radius: 4px;
+}
+
+/* --------------------------------------------
+   Tables
+   -------------------------------------------- */
+.md-typeset table:not([class]) th {
+  background: var(--md-primary-fg-color);
+  color: white;
+  font-weight: 600;
+}
+
+/* --------------------------------------------
+   Admonitions
+   -------------------------------------------- */
+.md-typeset .admonition.tip,
+.md-typeset details.tip {
+  border-color: var(--md-primary-fg-color);
+}
+
+.md-typeset .tip > .admonition-title,
+.md-typeset .tip > summary {
+  background-color: rgba(233, 30, 99, 0.1);
+}
+
+/* --------------------------------------------
+   Navigation
+   -------------------------------------------- */
+.md-nav__link--active {
+  font-weight: 600;
+  color: var(--md-primary-fg-color) !important;
+}
+
+/* --------------------------------------------
+   Buttons
+   -------------------------------------------- */
+.md-button--primary {
+  background-color: var(--md-primary-fg-color);
+  border-color: var(--md-primary-fg-color);
+}
+
+.md-button--primary:hover {
+  background-color: var(--md-primary-fg-color--dark);
+  border-color: var(--md-primary-fg-color--dark);
+}
+
+/* --------------------------------------------
+   Feature Grid (for index page)
+   -------------------------------------------- */
+.grid.cards {
+  margin-top: 1rem;
+}
+
+.grid.cards > ul > li {
+  border-left: 3px solid var(--md-primary-fg-color);
 }
