@@ -1,0 +1,49 @@
+/* Pink theme customization */
+:root {
+  --md-primary-fg-color: #E92063;
+  --md-primary-fg-color--light: #EC4B81;
+  --md-primary-fg-color--dark: #C4185D;
+  --md-accent-fg-color: #E92063;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #E92063;
+  --md-primary-fg-color--light: #EC4B81;
+  --md-primary-fg-color--dark: #C4185D;
+  --md-accent-fg-color: #E92063;
+}
+
+/* Announcement bar styling */
+.md-banner {
+  background-color: var(--md-primary-fg-color);
+}
+
+.md-banner a {
+  color: white;
+}
+
+/* Code block styling */
+.highlight code {
+  font-size: 0.85em;
+}
+
+/* Table styling */
+.md-typeset table:not([class]) {
+  font-size: 0.85em;
+}
+
+/* Navigation styling */
+.md-nav__link--active {
+  color: var(--md-primary-fg-color) !important;
+}
+
+/* Footer styling */
+.md-footer {
+  margin-top: 2rem;
+}
+
+/* Admonition styling */
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: 0.85em;
+}

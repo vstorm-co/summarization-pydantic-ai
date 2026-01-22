@@ -1,41 +1,69 @@
-site_name: summarization-pydantic-ai
-site_description: Automatic conversation summarization for pydantic-ai agents
+site_name: Context Management for Pydantic AI
+site_description: Automatic Conversation Summarization and History Management
 site_url: https://vstorm-co.github.io/summarization-pydantic-ai/
 repo_url: https://github.com/vstorm-co/summarization-pydantic-ai
 repo_name: vstorm-co/summarization-pydantic-ai
 
 theme:
   name: material
+  custom_dir: docs/overrides
   palette:
-    - scheme: slate
-      primary: blue
-      accent: blue
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: pink
+      accent: pink
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
-    - scheme: default
-      primary: blue
-      accent: blue
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: pink
+      accent: pink
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
   font:
-    text: Roboto
-    code: Roboto Mono
+    text: Inter
+    code: JetBrains Mono
+  favicon: assets/favicon.png
+  icon:
+    repo: fontawesome/brands/github
+    admonition:
+      note: octicons/tag-16
+      abstract: octicons/checklist-16
+      info: octicons/info-16
+      tip: octicons/squirrel-16
+      success: octicons/check-16
+      question: octicons/question-16
+      warning: octicons/alert-16
+      failure: octicons/x-circle-16
+      danger: octicons/zap-16
+      bug: octicons/bug-16
+      example: octicons/beaker-16
+      quote: octicons/quote-16
   features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.expand
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.instant.progress
+    - navigation.tracking
+    - navigation.path
     - navigation.top
     - navigation.footer
+    - navigation.indexes
     - search.suggest
     - search.highlight
+    - search.share
     - content.tabs.link
     - content.code.copy
+    - content.code.select
     - content.code.annotate
+    - content.tooltips
+    - toc.follow
+    - announce.dismiss
 
 plugins:
-  - search
+  - search:
+      separator: '[\s\u200b\-_,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
   - mkdocstrings:
       handlers:
         python:
@@ -44,51 +72,91 @@ plugins:
             docstring_style: google
             show_source: true
             show_root_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
             members_order: source
+            signature_crossrefs: true
 
 markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
       line_spans: __span
       pygments_lang_class: true
+      auto_title: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - includes/abbreviations.md
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
-  - pymdownx.details
-  - admonition
-  - tables
-  - attr_list
-  - md_in_html
-  - toc:
-      permalink: true
+      combine_header_slug: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
 
 extra:
+  status:
+    new: Recently added
+    deprecated: Deprecated
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/vstorm-co/summarization-pydantic-ai
+      name: GitHub
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/summarization-pydantic-ai/
+      name: PyPI
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
-  - summarization-pydantic-ai:
-    - index.md
-    - installation.md
-    - changelog.md
-    - getting-help.md
-  - Documentation:
-    - Core Concepts:
-      - concepts/index.md
-      - concepts/processor.md
-      - concepts/sliding-window.md
-      - concepts/triggers.md
+  - Context Management: index.md
+  - Installation: installation.md
+  - Getting Help: getting-help.md
+  - Core Concepts:
+    - concepts/index.md
+    - Summarization Processor: concepts/processor.md
+    - Sliding Window Processor: concepts/sliding-window.md
+    - Triggers & Keep: concepts/triggers.md
   - Examples:
     - examples/index.md
-    - examples/basic-usage.md
-    - examples/advanced.md
+    - Basic Usage: examples/basic-usage.md
+    - Advanced: examples/advanced.md
   - API Reference:
     - api/index.md
-    - api/processor.md
-    - api/sliding-window.md
-    - api/types.md
+    - SummarizationProcessor: api/processor.md
+    - SlidingWindowProcessor: api/sliding-window.md
+    - Types: api/types.md
+  - Changelog: changelog.md
+
+validation:
+  nav:
+    omitted_files: info
