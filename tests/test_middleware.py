@@ -2,25 +2,19 @@
 
 from __future__ import annotations
 
-import asyncio
-from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
-    SystemPromptPart,
     TextPart,
-    ToolCallPart,
-    ToolReturnPart,
     UserPromptPart,
 )
 
 from pydantic_ai_summarization.middleware import (
     ContextManagerMiddleware,
-    UsageCallback,
     _truncate_tool_output,
     create_context_manager_middleware,
 )
@@ -42,7 +36,7 @@ def _make_large_messages(n: int, content_size: int = 1000) -> list[ModelMessage]
     """Create messages with large content for token threshold testing."""
     msgs: list[ModelMessage] = []
     for i in range(n):
-        content = f"x" * content_size
+        content = "x" * content_size
         if i % 2 == 0:
             msgs.append(ModelRequest(parts=[UserPromptPart(content=content)]))
         else:
