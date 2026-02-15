@@ -459,3 +459,9 @@ class TestSummarizationProcessor:
                 trigger=("fraction", 0.0),
                 max_input_tokens=100000,
             )
+
+    def test_validate_context_size(self):
+        """Test _validate_context_size wrapper delegates correctly."""
+        processor = SummarizationProcessor(model="openai:gpt-4.1")
+        result = processor._validate_context_size(("messages", 10), "test")
+        assert result == ("messages", 10)

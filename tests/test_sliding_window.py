@@ -381,3 +381,9 @@ class TestSlidingWindowProcessor:
         # All are requests, no tool pairs to break
         assert processor._is_safe_cutoff_point(messages, 1)
         assert processor._is_safe_cutoff_point(messages, 2)
+
+    def test_validate_context_size(self):
+        """Test _validate_context_size wrapper delegates correctly."""
+        processor = SlidingWindowProcessor()
+        result = processor._validate_context_size(("tokens", 500), "test")
+        assert result == ("tokens", 500)

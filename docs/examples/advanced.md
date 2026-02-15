@@ -49,6 +49,115 @@ Use your own token counting logic with either processor:
     )
     ```
 
+## Implementing a Custom TokenCounter
+
+The [`TokenCounter`][pydantic_ai_summarization.types.TokenCounter] type is defined as:
+
+```python
+TokenCounter = Callable[[Sequence[ModelMessage]], int]
+```
+
+Any callable that accepts a sequence of `ModelMessage` objects and returns an integer token count will work. Below is a complete example using [tiktoken](https://github.com/openai/tiktoken) that properly inspects each message part for accurate counting:
+
+```python
+from collections.abc import Sequence
+
+import tiktoken
+from pydantic_ai.messages import (
+    ModelMessage,
+    ModelRequest,
+    ModelResponse,
+    SystemPromptPart,
+    TextPart,
+    ToolCallPart,
+    ToolReturnPart,
+    UserPromptPart,
+)
+from pydantic_ai_summarization import (
+    create_summarization_processor,
+    create_sliding_window_processor,
+)
+
+
+def tiktoken_counter(
+    messages: Sequence[ModelMessage],
+    model: str = "gpt-4",
+) -> int:
+    """Count tokens accurately using tiktoken.
+
+    Inspects each message part individually for precise counting,
+    rather than converting the entire message to a string.
+
+    Args:
+        messages: Sequence of pydantic-ai ModelMessage objects.
+        model: The model name to use for encoding lookup.
+
+    Returns:
+        Total token count across all messages.
+    """
+    encoding = tiktoken.encoding_for_model(model)
+    total = 0
+
+    for msg in messages:
+        if isinstance(msg, ModelRequest):
+            for part in msg.parts:
+                if isinstance(part, UserPromptPart):
+                    if isinstance(part.content, str):
+                        total += len(encoding.encode(part.content))
+                    else:
+                        for item in part.content:
+                            if isinstance(item, dict) and "text" in item:
+                                total += len(encoding.encode(str(item["text"])))
+                elif isinstance(part, SystemPromptPart):
+                    total += len(encoding.encode(part.content))
+                elif isinstance(part, ToolReturnPart):
+                    total += len(encoding.encode(str(part.content)))
+        elif isinstance(msg, ModelResponse):
+            for part in msg.parts:
+                if isinstance(part, TextPart):
+                    total += len(encoding.encode(part.content))
+                elif isinstance(part, ToolCallPart):
+                    total += len(encoding.encode(part.tool_name))
+                    total += len(encoding.encode(str(part.args)))
+
+    return total
+
+
+# Use with any processor
+summarizer = create_summarization_processor(
+    trigger=("tokens", 100_000),
+    keep=("tokens", 20_000),
+    token_counter=tiktoken_counter,
+)
+
+window = create_sliding_window_processor(
+    trigger=("tokens", 100_000),
+    keep=("tokens", 50_000),
+    token_counter=tiktoken_counter,
+)
+```
+
+!!! tip "Install tiktoken"
+    Install with the `tiktoken` extra for convenience:
+
+    ```bash
+    pip install summarization-pydantic-ai[tiktoken]
+    ```
+
+You can also create a model-specific counter using `functools.partial`:
+
+```python
+from functools import partial
+
+gpt4_counter = partial(tiktoken_counter, model="gpt-4")
+gpt4o_counter = partial(tiktoken_counter, model="gpt-4o")
+
+processor = create_summarization_processor(
+    token_counter=gpt4_counter,
+    trigger=("tokens", 100_000),
+)
+```
+
 ## Custom Summary Prompt
 
 Customize how summaries are generated (SummarizationProcessor only):

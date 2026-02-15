@@ -22,6 +22,7 @@ pip install summarization-pydantic-ai
 | Extra | Description | Use Case |
 |-------|-------------|----------|
 | `tiktoken` | Accurate token counting | OpenAI models |
+| `hybrid` | Context manager middleware | Real-time token tracking + tool truncation |
 
 ### Tiktoken for Accurate Token Counting
 
@@ -41,6 +42,41 @@ For more accurate token counting (especially with OpenAI models):
 
 !!! tip "When to use tiktoken"
     The default token counter uses a heuristic (~4 chars per token). For production applications with OpenAI models, tiktoken provides exact token counts.
+
+### Hybrid for Context Manager Middleware
+
+The `hybrid` extra installs [pydantic-ai-middleware](https://github.com/vstorm-co/pydantic-ai-middleware), which is required for the [`ContextManagerMiddleware`](advanced/context-manager.md). This middleware provides real-time token tracking, auto-compression, and tool output truncation.
+
+=== "uv"
+
+    ```bash
+    uv add summarization-pydantic-ai[hybrid]
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install summarization-pydantic-ai[hybrid]
+    ```
+
+!!! tip "When to use hybrid"
+    Use the `hybrid` extra when you need real-time token budget tracking with `on_usage_update` callbacks, automatic tool output truncation, or dual-protocol middleware that combines history processing with tool interception.
+
+### Multiple Extras
+
+You can install multiple extras at once:
+
+=== "uv"
+
+    ```bash
+    uv add summarization-pydantic-ai[tiktoken,hybrid]
+    ```
+
+=== "pip"
+
+    ```bash
+    pip install summarization-pydantic-ai[tiktoken,hybrid]
+    ```
 
 ## Environment Setup
 

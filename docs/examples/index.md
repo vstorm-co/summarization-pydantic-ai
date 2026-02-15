@@ -8,6 +8,7 @@ Learn by example with these practical use cases.
 |---------|-------------|
 | [Basic Usage](basic-usage.md) | Getting started with both processors |
 | [Advanced](advanced.md) | Custom counters, prompts, and configurations |
+| [Context Manager](context-manager.md) | Real-time token tracking and tool truncation |
 
 ## Quick Examples
 
@@ -104,3 +105,4 @@ agent = Agent(
 
 - See [Basic Usage](basic-usage.md) for detailed examples
 - See [Advanced](advanced.md) for custom configurations
+- See [Context Manager](context-manager.md) for real-time context management

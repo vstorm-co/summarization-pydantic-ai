@@ -14,6 +14,11 @@ from pydantic_ai_summarization import (
     SlidingWindowProcessor,
     create_sliding_window_processor,
 
+    # Main exports - Context Manager Middleware (requires [hybrid] extra)
+    ContextManagerMiddleware,
+    UsageCallback,
+    create_context_manager_middleware,
+
     # Utilities
     count_tokens_approximately,
     format_messages_for_summary,
@@ -36,18 +41,21 @@ from pydantic_ai_summarization import (
 |--------|-------------|
 | [Processor](processor.md) | `SummarizationProcessor` class and factory function |
 | [Sliding Window](sliding-window.md) | `SlidingWindowProcessor` class and factory function |
+| [Middleware](middleware.md) | `ContextManagerMiddleware` class and factory function (requires `[hybrid]` extra) |
 | [Types](types.md) | Type definitions and aliases |
 
 ## Processors Comparison
 
-| Feature | SummarizationProcessor | SlidingWindowProcessor |
-|---------|----------------------|----------------------|
-| LLM Cost | High | Zero |
-| Latency | High | ~0ms |
-| Context Preservation | Intelligent | None |
-| `model` param | Required | Not needed |
-| `summary_prompt` | Customizable | Not applicable |
-| `trim_tokens_to_summarize` | Supported | Not applicable |
+| Feature | SummarizationProcessor | SlidingWindowProcessor | ContextManagerMiddleware |
+|---------|----------------------|----------------------|------------------------|
+| LLM Cost | High | Zero | Per compression |
+| Latency | High | ~0ms | Low (tracking) / High (compression) |
+| Context Preservation | Intelligent | None | Intelligent |
+| Token Tracking | No | No | Built-in |
+| Usage Callbacks | No | No | Yes |
+| Tool Output Truncation | No | No | Yes |
+| `model` param | Required | Not needed | Optional (for summaries) |
+| Requires extra | No | No | `[hybrid]` |
 
 ## Quick Examples
 

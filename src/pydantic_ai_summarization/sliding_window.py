@@ -8,20 +8,34 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from pydantic_ai.messages import (
-    ModelMessage,
-    ModelRequest,
-    ModelResponse,
-    ToolCallPart,
-    ToolReturnPart,
-)
+from pydantic_ai.messages import ModelMessage
 
+from pydantic_ai_summarization._cutoff import (
+    determine_cutoff_index as _determine_cutoff,
+)
+from pydantic_ai_summarization._cutoff import (
+    find_safe_cutoff as _find_safe,
+)
+from pydantic_ai_summarization._cutoff import (
+    find_token_based_cutoff as _find_token,
+)
+from pydantic_ai_summarization._cutoff import (
+    is_safe_cutoff_point as _is_safe,
+)
+from pydantic_ai_summarization._cutoff import (
+    should_trigger as _should_trigger,
+)
+from pydantic_ai_summarization._cutoff import (
+    validate_context_size as _validate_ctx,
+)
+from pydantic_ai_summarization._cutoff import (
+    validate_triggers_and_keep as _validate_trig_keep,
+)
 from pydantic_ai_summarization.processor import count_tokens_approximately
 from pydantic_ai_summarization.types import ContextSize, TokenCounter
 
 _DEFAULT_WINDOW_SIZE = 50
 _DEFAULT_TRIGGER_MESSAGES = 100
-_SEARCH_RANGE_FOR_TOOL_PAIRS = 5
 
 
 @dataclass
@@ -89,160 +103,43 @@ class SlidingWindowProcessor:
 
     def __post_init__(self) -> None:
         """Validate configuration and set up trigger conditions."""
-        if self.trigger is None:
-            self._trigger_conditions = []
-        elif isinstance(self.trigger, list):
-            self._trigger_conditions = [
-                self._validate_context_size(t, "trigger") for t in self.trigger
-            ]
-        else:
-            self._trigger_conditions = [self._validate_context_size(self.trigger, "trigger")]
-
-        self.keep = self._validate_context_size(self.keep, "keep")
-
-        # Validate that fraction-based config has max_input_tokens
-        requires_max_tokens = any(t[0] == "fraction" for t in self._trigger_conditions)
-        if self.keep[0] == "fraction":
-            requires_max_tokens = True
-
-        if requires_max_tokens and self.max_input_tokens is None:
-            raise ValueError(
-                "max_input_tokens is required when using fraction-based triggers or keep. "
-                "Please provide the model's maximum input token limit."
-            )
+        self._trigger_conditions, self.keep = _validate_trig_keep(
+            self.trigger, self.keep, self.max_input_tokens
+        )
 
     def _validate_context_size(self, context: ContextSize, parameter_name: str) -> ContextSize:
         """Validate context configuration tuples."""
-        kind, value = context
-        if kind == "fraction":
-            if not 0 < value <= 1:
-                raise ValueError(
-                    f"Fractional {parameter_name} values must be between 0 and 1, got {value}."
-                )
-        elif kind in {"tokens", "messages"}:
-            if value <= 0:
-                raise ValueError(
-                    f"{parameter_name} thresholds must be greater than 0, got {value}."
-                )
-        else:
-            raise ValueError(f"Unsupported context size type {kind} for {parameter_name}.")
-        return context
+        return _validate_ctx(context, parameter_name)
 
     def _should_trim(self, messages: list[ModelMessage], total_tokens: int) -> bool:
         """Determine whether window trimming should occur."""
-        if not self._trigger_conditions:
-            return False
-
-        for kind, value in self._trigger_conditions:
-            if kind == "messages" and len(messages) >= value:
-                return True
-            if kind == "tokens" and total_tokens >= value:
-                return True
-            if kind == "fraction" and self.max_input_tokens:
-                threshold = int(self.max_input_tokens * value)
-                if total_tokens >= threshold:
-                    return True
-        return False
+        return _should_trigger(
+            self._trigger_conditions, messages, total_tokens, self.max_input_tokens
+        )
 
     def _determine_cutoff_index(self, messages: list[ModelMessage]) -> int:
         """Choose cutoff index respecting retention configuration."""
-        kind, value = self.keep
-
-        if kind == "messages":
-            return self._find_safe_cutoff(messages, int(value))
-        elif kind == "tokens":
-            return self._find_token_based_cutoff(messages, int(value))
-        elif kind == "fraction" and self.max_input_tokens:
-            target_tokens = int(self.max_input_tokens * value)
-            return self._find_token_based_cutoff(messages, target_tokens)
-
-        return self._find_safe_cutoff(messages, _DEFAULT_WINDOW_SIZE)  # pragma: no cover
+        return _determine_cutoff(
+            messages,
+            self.keep,
+            self.token_counter,
+            self.max_input_tokens,
+            _DEFAULT_WINDOW_SIZE,
+        )
 
     def _find_token_based_cutoff(
         self, messages: list[ModelMessage], target_token_count: int
     ) -> int:
         """Find cutoff index based on target token retention."""
-        if not messages or self.token_counter(messages) <= target_token_count:
-            return 0
-
-        # Binary search for the cutoff point
-        left, right = 0, len(messages)
-        cutoff_candidate = len(messages)
-
-        for _ in range(len(messages).bit_length() + 1):
-            if left >= right:
-                break
-
-            mid = (left + right) // 2
-            if self.token_counter(messages[mid:]) <= target_token_count:
-                cutoff_candidate = mid
-                right = mid
-            else:
-                left = mid + 1
-
-        if cutoff_candidate >= len(messages):  # pragma: no cover
-            cutoff_candidate = max(0, len(messages) - 1)
-
-        # Find a safe cutoff point (not splitting tool call pairs)
-        for i in range(cutoff_candidate, -1, -1):  # pragma: no branch
-            if self._is_safe_cutoff_point(messages, i):
-                return i
-
-        return 0  # pragma: no cover
+        return _find_token(messages, target_token_count, self.token_counter)
 
     def _find_safe_cutoff(self, messages: list[ModelMessage], messages_to_keep: int) -> int:
         """Find safe cutoff point that preserves tool call/response pairs."""
-        if len(messages) <= messages_to_keep:
-            return 0
-
-        target_cutoff = len(messages) - messages_to_keep
-
-        for i in range(target_cutoff, -1, -1):
-            if self._is_safe_cutoff_point(messages, i):
-                return i
-
-        return 0  # pragma: no cover
+        return _find_safe(messages, messages_to_keep)
 
     def _is_safe_cutoff_point(self, messages: list[ModelMessage], cutoff_index: int) -> bool:
-        """Check if cutting at index would separate tool call/response pairs.
-
-        This ensures we never discard a tool call without its response or vice versa,
-        which would confuse the model.
-        """
-        if cutoff_index >= len(messages):
-            return True
-
-        search_start = max(0, cutoff_index - _SEARCH_RANGE_FOR_TOOL_PAIRS)
-        search_end = min(len(messages), cutoff_index + _SEARCH_RANGE_FOR_TOOL_PAIRS)
-
-        for i in range(search_start, search_end):
-            msg = messages[i]
-            if not isinstance(msg, ModelResponse):
-                continue
-
-            tool_call_ids: set[str] = set()
-            for part in msg.parts:
-                if isinstance(part, ToolCallPart) and part.tool_call_id:
-                    tool_call_ids.add(part.tool_call_id)
-
-            if not tool_call_ids:
-                continue
-
-            # Check if cutoff separates this tool call from its response
-            for j in range(i + 1, len(messages)):
-                check_msg = messages[j]
-                if isinstance(check_msg, ModelRequest):
-                    for request_part in check_msg.parts:
-                        if (
-                            isinstance(request_part, ToolReturnPart)
-                            and request_part.tool_call_id in tool_call_ids
-                        ):
-                            tool_before_cutoff = i < cutoff_index
-                            response_before_cutoff = j < cutoff_index
-                            if tool_before_cutoff != response_before_cutoff:
-                                return False
-
-        return True
+        """Check if cutting at index would separate tool call/response pairs."""
+        return _is_safe(messages, cutoff_index)
 
     async def __call__(self, messages: list[ModelMessage]) -> list[ModelMessage]:
         """Process messages and trim if needed.

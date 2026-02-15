@@ -17,6 +17,8 @@
   &nbsp;&bull;&nbsp;
   <b>Sliding Window</b> — zero-cost message trimming
   &nbsp;&bull;&nbsp;
+  <b>Context Manager</b> — real-time token tracking + tool truncation
+  &nbsp;&bull;&nbsp;
   <b>Safe Cutoff</b> — preserves tool call pairs
 </p>
 
@@ -54,6 +56,12 @@ For accurate token counting:
 pip install summarization-pydantic-ai[tiktoken]
 ```
 
+For real-time token tracking and tool output truncation:
+
+```bash
+pip install summarization-pydantic-ai[hybrid]
+```
+
 ## Quick Start
 
 ```python
@@ -86,6 +94,7 @@ result = await agent.run("Hello!")
 |-----------|----------|---------|---------------------|
 | `SummarizationProcessor` | High | High | Intelligent summary |
 | `SlidingWindowProcessor` | Zero | ~0ms | Discards old messages |
+| `ContextManagerMiddleware` | Per compression | Low tracking / High compression | Intelligent summary |
 
 ### Intelligent Summarization
 
@@ -112,6 +121,28 @@ processor = create_sliding_window_processor(
     keep=("messages", 50),      # What to keep
 )
 ```
+
+### Real-Time Context Manager
+
+Dual-protocol middleware combining token tracking, auto-compression, and tool output truncation:
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import create_context_manager_middleware
+
+middleware = create_context_manager_middleware(
+    max_tokens=200_000,
+    compress_threshold=0.9,
+    on_usage_update=lambda pct, cur, mx: print(f"{pct:.0%} used ({cur:,}/{mx:,})"),
+)
+
+agent = Agent(
+    "openai:gpt-4o",
+    history_processors=[middleware],
+)
+```
+
+Requires `pip install summarization-pydantic-ai[hybrid]`
 
 ## Trigger Types
 
@@ -168,6 +199,28 @@ processor = create_summarization_processor(
 )
 ```
 
+### Custom Model (e.g., Azure OpenAI)
+
+```python
+from pydantic_ai.models.openai import OpenAIModel
+from pydantic_ai.providers.openai import OpenAIProvider
+from pydantic_ai_summarization import create_summarization_processor
+
+azure_model = OpenAIModel(
+    "gpt-4o",
+    provider=OpenAIProvider(
+        base_url="https://my-resource.openai.azure.com/openai/deployments/gpt-4o",
+        api_key="your-azure-api-key",
+    ),
+)
+
+processor = create_summarization_processor(
+    model=azure_model,
+    trigger=("tokens", 100000),
+    keep=("messages", 20),
+)
+```
+
 ### Custom Summary Prompt
 
 ```python
@@ -191,7 +244,10 @@ processor = create_summarization_processor(
 | **Safe Cutoff** | Never breaks tool call/response pairs |
 | **Custom Counters** | Bring your own token counting logic |
 | **Custom Prompts** | Control how summaries are generated |
-| **Zero Dependencies** | Only requires pydantic-ai |
+| **Token Tracking** | Real-time usage monitoring with callbacks |
+| **Tool Truncation** | Automatic truncation of large tool outputs |
+| **Custom Models** | Use any pydantic-ai Model (Azure, custom providers) |
+| **Lightweight** | Only requires pydantic-ai-slim (no extra model SDKs) |
 
 ## Related Projects
 

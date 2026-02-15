@@ -2750,6 +2750,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pydantic-ai-middleware"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pydantic-ai" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/43/5a/a668fc56e01db7bdab13346b37c4c3cb59052039205e2e0a0cf0e226ae93/pydantic_ai_middleware-0.2.0.tar.gz", hash = "sha256:d9e2308394cf4aee54bc723dcdd5292bcad24c9948c57bb7d2b685f86f3f4983", size = 611570 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/ae/e9f7902d3e7e46aadc0a1ce4190ec8b2d5d122d3a5854c94bfd4e7254abf/pydantic_ai_middleware-0.2.0-py3-none-any.whl", hash = "sha256:daff77183d3d68839e9c1ed3c326716f998d7c116147961e93abea4b386a114d", size = 45346 },
+]
+
+[[package]]
 name = "pydantic-ai-slim"
 version = "1.44.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3706,10 +3719,10 @@ wheels = [
 
 [[package]]
 name = "summarization-pydantic-ai"
-version = "0.0.1"
+version = "0.0.3"
 source = { editable = "." }
 dependencies = [
-    { name = "pydantic-ai" },
+    { name = "pydantic-ai-slim" },
 ]
 
 [package.optional-dependencies]
@@ -3721,11 +3734,15 @@ dev = [
     { name = "mkdocstrings", extra = ["python"] },
     { name = "mypy" },
     { name = "pre-commit" },
+    { name = "pydantic-ai-middleware" },
     { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ruff" },
+]
+hybrid = [
+    { name = "pydantic-ai-middleware" },
 ]
 tiktoken = [
     { name = "tiktoken" },
@@ -3740,7 +3757,9 @@ requires-dist = [
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'dev'", specifier = ">=0.27.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "pydantic-ai", specifier = ">=0.1.0" },
+    { name = "pydantic-ai-middleware", marker = "extra == 'dev'", specifier = ">=0.2.0" },
+    { name = "pydantic-ai-middleware", marker = "extra == 'hybrid'", specifier = ">=0.2.0" },
+    { name = "pydantic-ai-slim", specifier = ">=0.1.0" },
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.1.400" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.23.0" },
@@ -3748,7 +3767,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8.0" },
     { name = "tiktoken", marker = "extra == 'tiktoken'", specifier = ">=0.5.0" },
 ]
-provides-extras = ["tiktoken", "dev"]
+provides-extras = ["tiktoken", "hybrid", "dev"]
 
 [[package]]
 name = "temporalio"

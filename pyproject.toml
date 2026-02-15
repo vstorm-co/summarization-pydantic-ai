@@ -1,6 +1,6 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.0.2"
+version = "0.0.3"
 description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"
@@ -21,14 +21,18 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pydantic-ai>=0.1.0",
+    "pydantic-ai-slim>=0.1.0",
 ]
 
 [project.optional-dependencies]
 tiktoken = [
     "tiktoken>=0.5.0",
 ]
+hybrid = [
+    "pydantic-ai-middleware>=0.2.0",
+]
 dev = [
+    "pydantic-ai-middleware>=0.2.0",
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=7.0.0",
@@ -107,7 +111,7 @@ exclude_lines = [
     "@abstractmethod",
     "raise NotImplementedError",
     "if __name__ == '__main__':",
-    "except ImportError:",
+    "except ImportError",
     "pass",
     "\\.\\.\\.",
 ]
