@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import inspect
 from collections.abc import Sequence
+from typing import cast
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -152,7 +153,7 @@ def find_token_based_cutoff(
     Returns:
         Index at which to cut, preserving tool call/response pairs.
     """
-    if not messages or token_counter(messages) <= target_token_count:
+    if not messages or cast(int, token_counter(messages)) <= target_token_count:
         return 0
 
     # Binary search for the cutoff point
@@ -164,7 +165,7 @@ def find_token_based_cutoff(
             break
 
         mid = (left + right) // 2
-        if token_counter(messages[mid:]) <= target_token_count:
+        if cast(int, token_counter(messages[mid:])) <= target_token_count:
             cutoff_candidate = mid
             right = mid
         else:

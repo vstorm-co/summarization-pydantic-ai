@@ -445,19 +445,9 @@ class TestResolveMaxTokens:
         mock_snapshot = MagicMock()
         mock_snapshot.find_provider_model.return_value = (MagicMock(), mock_model)
 
-        with (
-            patch(
-                "pydantic_ai_summarization.middleware.resolve_max_tokens",
-                wraps=resolve_max_tokens,
-            ),
-            patch.dict(
-                "sys.modules",
-                {"genai_prices": MagicMock(), "genai_prices.data_snapshot": MagicMock()},
-            ),
-            patch(
-                "genai_prices.data_snapshot.get_snapshot",
-                return_value=mock_snapshot,
-            ),
+        with patch(
+            "genai_prices.data_snapshot.get_snapshot",
+            return_value=mock_snapshot,
         ):
             result = resolve_max_tokens("openai:gpt-4.1")
 

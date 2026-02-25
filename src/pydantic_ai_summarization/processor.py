@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
@@ -361,7 +361,7 @@ class SummarizationProcessor:
         Returns:
             Processed message history, potentially with older messages summarized.
         """
-        total_tokens = self.token_counter(messages)
+        total_tokens = cast(int, self.token_counter(messages))
 
         if not self._should_summarize(messages, total_tokens):
             return messages

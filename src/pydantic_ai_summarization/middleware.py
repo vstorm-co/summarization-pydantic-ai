@@ -316,10 +316,14 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
         if self.messages_path is not None:
             self._save_new_messages(messages)
 
-        total = await async_count_tokens(self.token_counter, messages)
-        pct = total / self.max_tokens if self.max_tokens > 0 else 0.0
+        # max_tokens is guaranteed to be int after __post_init__
+        assert self.max_tokens is not None
+        max_tokens: int = self.max_tokens
 
-        await self._notify_usage(pct, total, self.max_tokens)
+        total = await async_count_tokens(self.token_counter, messages)
+        pct = total / max_tokens if max_tokens > 0 else 0.0
+
+        await self._notify_usage(pct, total, max_tokens)
 
         # Compress if threshold reached OR manually requested via request_compact()
         should_compress = pct >= self.compress_threshold or self._compact_requested
@@ -341,8 +345,8 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
                 self._last_context_count = len(messages)
 
             new_total = await async_count_tokens(self.token_counter, messages)
-            new_pct = new_total / self.max_tokens if self.max_tokens > 0 else 0.0
-            await self._notify_usage(new_pct, new_total, self.max_tokens)
+            new_pct = new_total / max_tokens if max_tokens > 0 else 0.0
+            await self._notify_usage(new_pct, new_total, max_tokens)
 
         return messages
 
