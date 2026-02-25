@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`compact(messages, focus)`** method — direct LLM-based compaction
 - **`max_tokens` auto-detection** from `genai-prices` via `resolve_max_tokens(model_name)`
 - **`model_name` parameter** for auto-detection
-- **Async token counting** — `TokenCounter` now accepts sync or async callables
+- **Async token counting** — `TokenCounter` now accepts sync or async callables ([#6](https://github.com/vstorm-co/summarization-pydantic-ai/issues/6))
 - **`async_count_tokens()`** helper function
 - `BeforeCompressCallback`, `AfterCompressCallback` type aliases
 - 6 runnable examples in `examples/`

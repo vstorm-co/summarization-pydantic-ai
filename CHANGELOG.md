@@ -35,7 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`model_name` parameter** on `ContextManagerMiddleware` and factory — used for
   auto-detection of `max_tokens` when not explicitly set.
 - **Async token counting** — `TokenCounter` type now accepts both sync and async
-  callables (`Callable[..., int] | Callable[..., Awaitable[int]]`).
+  callables (`Callable[..., int] | Callable[..., Awaitable[int]]`). Enables use of
+  provider token counting APIs (e.g. Anthropic's `/count_tokens` endpoint) or
+  pydantic-ai's `count_tokens()` method. ([#6](https://github.com/vstorm-co/summarization-pydantic-ai/issues/6))
 - **`async_count_tokens()`** helper function exported from the package.
 - `BeforeCompressCallback`, `AfterCompressCallback` type aliases exported.
 - `messages_path`, `model_name`, `on_before_compress`, `on_after_compress`
