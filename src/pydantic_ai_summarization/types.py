@@ -10,8 +10,7 @@ from pydantic_ai.models import KnownModelName, Model
 
 # Type alias for token counting functions (sync or async)
 TokenCounter = (
-    Callable[[Sequence[ModelMessage]], int]
-    | Callable[[Sequence[ModelMessage]], Awaitable[int]]
+    Callable[[Sequence[ModelMessage]], int] | Callable[[Sequence[ModelMessage]], Awaitable[int]]
 )
 """Function type that counts tokens in a sequence of messages.
 

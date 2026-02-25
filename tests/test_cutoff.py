@@ -399,9 +399,7 @@ class TestAsyncDetermineCutoffIndex:
             return len(messages) * 5
 
         msgs = _make_messages(20)
-        cutoff = await async_determine_cutoff_index(
-            msgs, ("tokens", 10), async_counter
-        )
+        cutoff = await async_determine_cutoff_index(msgs, ("tokens", 10), async_counter)
         assert cutoff > 0
 
 
