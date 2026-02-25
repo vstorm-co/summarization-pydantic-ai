@@ -30,6 +30,7 @@ Automatic conversation summarization and context management for [Pydantic AI](ht
 
 | Processor | LLM Cost | Latency | Context Preservation | Best For |
 |-----------|----------|---------|---------------------|----------|
+| [`ContextManagerMiddleware`](advanced/context-manager.md) | Per compression | Low tracking | Intelligent summary + persistence | Production apps |
 | [`SummarizationProcessor`](concepts/processor.md) | High | High | Intelligent summary | Quality-focused apps |
 | [`SlidingWindowProcessor`](concepts/sliding-window.md) | Zero | ~0ms | Discards old messages | Speed/cost-focused apps |
 

@@ -10,7 +10,9 @@ This internal module contains standalone functions for:
 
 from __future__ import annotations
 
+import inspect
 from collections.abc import Sequence
+from typing import cast
 
 from pydantic_ai.messages import (
     ModelMessage,
@@ -21,6 +23,23 @@ from pydantic_ai.messages import (
 )
 
 from pydantic_ai_summarization.types import ContextSize, TokenCounter
+
+
+async def async_count_tokens(token_counter: TokenCounter, messages: Sequence[ModelMessage]) -> int:
+    """Call a token counter, awaiting if it returns an awaitable.
+
+    Args:
+        token_counter: Sync or async token counting function.
+        messages: Messages to count tokens for.
+
+    Returns:
+        Token count.
+    """
+    result = token_counter(messages)
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
 
 SEARCH_RANGE_FOR_TOOL_PAIRS: int = 5
 """Number of messages to search around cutoff point for tool call/response pairs."""
@@ -46,8 +65,8 @@ def validate_context_size(context: ContextSize, parameter_name: str) -> ContextS
                 f"Fractional {parameter_name} values must be between 0 and 1, got {value}."
             )
     elif kind in {"tokens", "messages"}:
-        if value <= 0:
-            raise ValueError(f"{parameter_name} thresholds must be greater than 0, got {value}.")
+        if value < 0:
+            raise ValueError(f"{parameter_name} thresholds must be non-negative, got {value}.")
     else:
         raise ValueError(f"Unsupported context size type {kind} for {parameter_name}.")
     return context
@@ -134,7 +153,7 @@ def find_token_based_cutoff(
     Returns:
         Index at which to cut, preserving tool call/response pairs.
     """
-    if not messages or token_counter(messages) <= target_token_count:
+    if not messages or cast(int, token_counter(messages)) <= target_token_count:
         return 0
 
     # Binary search for the cutoff point
@@ -146,7 +165,7 @@ def find_token_based_cutoff(
             break
 
         mid = (left + right) // 2
-        if token_counter(messages[mid:]) <= target_token_count:
+        if cast(int, token_counter(messages[mid:])) <= target_token_count:
             cutoff_candidate = mid
             right = mid
         else:
@@ -169,10 +188,14 @@ def find_safe_cutoff(messages: list[ModelMessage], messages_to_keep: int) -> int
     Args:
         messages: Current message history.
         messages_to_keep: Number of messages to keep from the end.
+            Use 0 to summarize everything (only summary survives).
 
     Returns:
         Index at which to cut, preserving tool call/response pairs.
     """
+    if messages_to_keep == 0:
+        return len(messages)
+
     if len(messages) <= messages_to_keep:
         return 0
 
@@ -280,3 +303,66 @@ def validate_triggers_and_keep(
         )
 
     return trigger_conditions, validated_keep
+
+
+# -- Async variants for ContextManagerMiddleware --
+
+
+async def async_determine_cutoff_index(
+    messages: list[ModelMessage],
+    keep: ContextSize,
+    token_counter: TokenCounter,
+    max_input_tokens: int | None = None,
+    default_keep: int = 0,
+) -> int:
+    """Async variant of :func:`determine_cutoff_index`.
+
+    Supports both sync and async token counters.
+    """
+    kind, value = keep
+
+    if kind == "messages":
+        return find_safe_cutoff(messages, int(value))
+    elif kind == "tokens":
+        return await async_find_token_based_cutoff(messages, int(value), token_counter)
+    elif kind == "fraction" and max_input_tokens:
+        target_tokens = int(max_input_tokens * value)
+        return await async_find_token_based_cutoff(messages, target_tokens, token_counter)
+
+    return find_safe_cutoff(messages, default_keep)  # pragma: no cover
+
+
+async def async_find_token_based_cutoff(
+    messages: list[ModelMessage],
+    target_token_count: int,
+    token_counter: TokenCounter,
+) -> int:
+    """Async variant of :func:`find_token_based_cutoff`.
+
+    Supports both sync and async token counters.
+    """
+    if not messages or await async_count_tokens(token_counter, messages) <= target_token_count:
+        return 0
+
+    left, right = 0, len(messages)
+    cutoff_candidate = len(messages)
+
+    for _ in range(len(messages).bit_length() + 1):
+        if left >= right:
+            break
+
+        mid = (left + right) // 2
+        if await async_count_tokens(token_counter, messages[mid:]) <= target_token_count:
+            cutoff_candidate = mid
+            right = mid
+        else:
+            left = mid + 1
+
+    if cutoff_candidate >= len(messages):  # pragma: no cover
+        cutoff_candidate = max(0, len(messages) - 1)
+
+    for i in range(cutoff_candidate, -1, -1):  # pragma: no branch
+        if is_safe_cutoff_point(messages, i):
+            return i
+
+    return 0  # pragma: no cover

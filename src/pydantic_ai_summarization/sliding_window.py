@@ -7,6 +7,7 @@ by keeping only the most recent messages without LLM-based summarization.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import cast
 
 from pydantic_ai.messages import ModelMessage
 
@@ -152,7 +153,7 @@ class SlidingWindowProcessor:
         Returns:
             Trimmed message history if threshold was reached, otherwise unchanged.
         """
-        total_tokens = self.token_counter(messages)
+        total_tokens = cast(int, self.token_counter(messages))
 
         if not self._should_trim(messages, total_tokens):
             return messages

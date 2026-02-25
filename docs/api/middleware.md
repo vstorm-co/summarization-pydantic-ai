@@ -7,4 +7,7 @@
       members:
         - ContextManagerMiddleware
         - create_context_manager_middleware
+        - resolve_max_tokens
         - UsageCallback
+        - BeforeCompressCallback
+        - AfterCompressCallback

@@ -3719,7 +3719,7 @@ wheels = [
 
 [[package]]
 name = "summarization-pydantic-ai"
-version = "0.0.3"
+version = "0.0.4"
 source = { editable = "." }
 dependencies = [
     { name = "pydantic-ai-slim" },

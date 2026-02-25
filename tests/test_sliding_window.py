@@ -68,23 +68,28 @@ class TestSlidingWindowProcessor:
 
     def test_invalid_message_threshold(self):
         """Test that invalid message thresholds are rejected."""
-        with pytest.raises(ValueError, match="greater than 0"):
+        with pytest.raises(ValueError, match="non-negative"):
             SlidingWindowProcessor(
                 trigger=("messages", -1),
             )
 
     def test_invalid_token_threshold(self):
         """Test that invalid token thresholds are rejected."""
-        with pytest.raises(ValueError, match="greater than 0"):
+        with pytest.raises(ValueError, match="non-negative"):
             SlidingWindowProcessor(
                 trigger=("tokens", -100),
             )
 
-    def test_invalid_keep_threshold(self):
-        """Test that invalid keep thresholds are rejected."""
-        with pytest.raises(ValueError, match="greater than 0"):
+    def test_valid_keep_zero(self):
+        """Test that zero keep is valid."""
+        proc = SlidingWindowProcessor(keep=("messages", 0))
+        assert proc.keep == ("messages", 0)
+
+    def test_invalid_keep_negative(self):
+        """Test that negative keep thresholds are rejected."""
+        with pytest.raises(ValueError, match="non-negative"):
             SlidingWindowProcessor(
-                keep=("messages", 0),
+                keep=("messages", -1),
             )
 
     def test_invalid_context_type(self):
