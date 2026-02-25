@@ -40,9 +40,9 @@ def on_usage(pct: float, current: int, maximum: int) -> None:
 
 def on_before_compress(messages: list[ModelMessage], cutoff_index: int) -> None:
     """Called BEFORE compression — messages are about to be summarized."""
-    print(f"\n  ⚡ COMPRESSION STARTING")
+    print("\n  ⚡ COMPRESSION STARTING")
     print(f"     Summarizing {cutoff_index} messages (out of {len(messages)} total)")
-    print(f"     These messages will be replaced by a summary.")
+    print("     These messages will be replaced by a summary.")
 
 
 def on_after_compress(messages: list[ModelMessage]) -> str | None:
@@ -52,7 +52,7 @@ def on_after_compress(messages: list[ModelMessage]) -> str | None:
     The returned string becomes a SystemPromptPart inserted after the summary.
     """
     print(f"  ✅ COMPRESSION DONE — {len(messages)} messages remain")
-    print(f"     Re-injecting critical instructions...")
+    print("     Re-injecting critical instructions...")
     return CRITICAL_INSTRUCTIONS
 
 

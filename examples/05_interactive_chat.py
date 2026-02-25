@@ -13,7 +13,6 @@ Run:
 """
 
 import asyncio
-import sys
 import tempfile
 from pathlib import Path
 
@@ -73,7 +72,7 @@ async def main() -> None:
     print("Interactive Chat (context managed)")
     print(f"  Model: {MODEL}")
     print(f"  Budget: {MAX_TOKENS:,} tokens")
-    print(f"  Threshold: 80%")
+    print("  Threshold: 80%")
     print(f"  Persistence: {messages_path}")
     print()
     print("Commands:")
