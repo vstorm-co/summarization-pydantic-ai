@@ -35,9 +35,8 @@ from __future__ import annotations
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
-
 from pathlib import Path as _Path
+from typing import Any
 
 from pydantic_ai import Agent
 from pydantic_ai.messages import (

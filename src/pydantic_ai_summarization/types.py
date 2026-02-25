@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable, Sequence
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import KnownModelName, Model
 
 # Type alias for token counting functions (sync or async)
-TokenCounter = Union[
-    Callable[[Sequence[ModelMessage]], int],
-    Callable[[Sequence[ModelMessage]], Awaitable[int]],
-]
+TokenCounter = (
+    Callable[[Sequence[ModelMessage]], int]
+    | Callable[[Sequence[ModelMessage]], Awaitable[int]]
+)
 """Function type that counts tokens in a sequence of messages.
 
 Supports both synchronous and asynchronous callables. When an async

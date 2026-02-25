@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 import pytest
 from pydantic_ai.messages import (
     ModelMessage,
@@ -15,6 +17,9 @@ from pydantic_ai.messages import (
 
 from pydantic_ai_summarization._cutoff import (
     SEARCH_RANGE_FOR_TOOL_PAIRS,
+    async_count_tokens,
+    async_determine_cutoff_index,
+    async_find_token_based_cutoff,
     determine_cutoff_index,
     find_safe_cutoff,
     find_token_based_cutoff,
@@ -314,3 +319,140 @@ class TestValidateTriggersAndKeep:
     def test_invalid_keep_negative(self):
         with pytest.raises(ValueError, match="non-negative"):
             validate_triggers_and_keep(None, ("messages", -1), None)
+
+
+class TestAsyncCountTokens:
+    """Tests for async_count_tokens with sync and async counters."""
+
+    async def test_sync_counter(self):
+        """Sync counter result is returned directly."""
+        msgs = _make_messages(4)
+        result = await async_count_tokens(count_tokens_approximately, msgs)
+        assert result == count_tokens_approximately(msgs)
+
+    async def test_async_counter(self):
+        """Async counter result is awaited."""
+
+        async def async_counter(messages: Sequence[ModelMessage]) -> int:
+            return len(messages) * 10
+
+        msgs = _make_messages(4)
+        result = await async_count_tokens(async_counter, msgs)
+        assert result == 40
+
+
+class TestFindSafeCutoffZeroKeep:
+    """Tests for find_safe_cutoff with messages_to_keep == 0."""
+
+    def test_zero_keep_returns_length(self):
+        """messages_to_keep=0 means summarize everything."""
+        msgs = _make_messages(5)
+        assert find_safe_cutoff(msgs, 0) == 5
+
+    def test_zero_keep_empty_messages(self):
+        """messages_to_keep=0 with empty list returns 0."""
+        assert find_safe_cutoff([], 0) == 0
+
+
+class TestAsyncDetermineCutoffIndex:
+    """Tests for async_determine_cutoff_index."""
+
+    async def test_message_based_keep(self):
+        """Message-based keep delegates to find_safe_cutoff."""
+        msgs = _make_messages(10)
+        cutoff = await async_determine_cutoff_index(
+            msgs, ("messages", 4), count_tokens_approximately
+        )
+        assert cutoff > 0
+
+    async def test_token_based_keep(self):
+        """Token-based keep delegates to async_find_token_based_cutoff."""
+        msgs = _make_messages(20)
+        cutoff = await async_determine_cutoff_index(
+            msgs, ("tokens", 10), count_tokens_approximately
+        )
+        assert cutoff > 0
+
+    async def test_fraction_based_keep(self):
+        """Fraction-based keep computes target tokens and delegates."""
+        msgs = _make_messages(20)
+        cutoff = await async_determine_cutoff_index(
+            msgs,
+            ("fraction", 0.1),
+            count_tokens_approximately,
+            max_input_tokens=100,
+        )
+        assert cutoff > 0
+
+    async def test_few_messages_message_keep(self):
+        """When messages < keep, cutoff is 0."""
+        msgs = _make_messages(3)
+        cutoff = await async_determine_cutoff_index(
+            msgs, ("messages", 10), count_tokens_approximately
+        )
+        assert cutoff == 0
+
+    async def test_with_async_token_counter(self):
+        """Works with async token counter."""
+
+        async def async_counter(messages: Sequence[ModelMessage]) -> int:
+            return len(messages) * 5
+
+        msgs = _make_messages(20)
+        cutoff = await async_determine_cutoff_index(
+            msgs, ("tokens", 10), async_counter
+        )
+        assert cutoff > 0
+
+
+class TestAsyncFindTokenBasedCutoff:
+    """Tests for async_find_token_based_cutoff."""
+
+    async def test_empty_messages(self):
+        """Empty messages returns 0."""
+        result = await async_find_token_based_cutoff([], 100, count_tokens_approximately)
+        assert result == 0
+
+    async def test_below_limit(self):
+        """Messages below token limit returns 0."""
+        msgs = _make_messages(4)
+        result = await async_find_token_based_cutoff(msgs, 999999, count_tokens_approximately)
+        assert result == 0
+
+    async def test_needs_cut(self):
+        """Messages above token limit get cut."""
+        msgs = _make_messages(20)
+        cutoff = await async_find_token_based_cutoff(msgs, 10, count_tokens_approximately)
+        assert cutoff > 0
+
+    async def test_with_tool_pairs(self):
+        """Preserves tool call/response pairs."""
+        msgs = [
+            *_make_messages(10),
+            *_make_tool_pair("call-1"),
+            *_make_messages(4),
+        ]
+        cutoff = await async_find_token_based_cutoff(msgs, 20, count_tokens_approximately)
+        assert cutoff >= 0
+        if cutoff > 0:
+            assert is_safe_cutoff_point(msgs, cutoff)
+
+    async def test_with_async_counter(self):
+        """Works with an async token counter."""
+
+        async def async_counter(messages: Sequence[ModelMessage]) -> int:
+            return len(messages) * 5
+
+        msgs = _make_messages(20)
+        cutoff = await async_find_token_based_cutoff(msgs, 10, async_counter)
+        assert cutoff > 0
+
+    async def test_with_async_counter_below_limit(self):
+        """Async counter with messages below limit returns 0."""
+
+        async def async_counter(messages: Sequence[ModelMessage]) -> int:
+            return len(messages) * 1
+
+        msgs = _make_messages(4)
+        result = await async_find_token_based_cutoff(msgs, 999999, async_counter)
+        assert result == 0
