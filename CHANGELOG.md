@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2026-02-25
+
+### Added
+
+- **`on_before_compress` callback** on `ContextManagerMiddleware` — called with
+  `(messages_to_discard, cutoff_index)` before compression summarizes and discards
+  messages. Enables persistent history archival (e.g. save full conversation to
+  files before pruning).
+- **`on_after_compress` callback** — called with compressed messages after
+  compression. Return a string to re-inject it into context as a `SystemPromptPart`
+  (inspired by Claude Code's SessionStart hook with compact matcher).
+- **Continuous message persistence** via `messages_path` on `ContextManagerMiddleware` —
+  every message (user input, agent responses, tool calls) is saved to a single
+  `messages.json` file on every history processor call. On compression, the summary
+  is appended to the same file. The file is the permanent, uncompressed record of
+  the full conversation. Supports session resume (loads existing history on init).
+- **Guided compaction** — `_compress()` and `_create_summary()` accept a `focus`
+  parameter (e.g., "Focus on the API changes") appended to the summary prompt.
+- **`request_compact(focus)`** method — request manual compaction on the next
+  `__call__`, with optional focus instructions.
+- **`compact(messages, focus)`** method — directly compact messages with LLM
+  summarization (for CLI `/compact` commands).
+- **`max_tokens` auto-detection** from `genai-prices` — when `max_tokens=None`
+  (the new default), the middleware resolves the model's context window
+  automatically via `genai-prices`. Falls back to 200,000 if not found.
+- **`resolve_max_tokens(model_name)`** function exported from the package —
+  standalone lookup of context windows from genai-prices.
+- **`model_name` parameter** on `ContextManagerMiddleware` and factory — used for
+  auto-detection of `max_tokens` when not explicitly set.
+- **Async token counting** — `TokenCounter` type now accepts both sync and async
+  callables (`Callable[..., int] | Callable[..., Awaitable[int]]`).
+- **`async_count_tokens()`** helper function exported from the package.
+- `BeforeCompressCallback`, `AfterCompressCallback` type aliases exported.
+- `messages_path`, `model_name`, `on_before_compress`, `on_after_compress`
+  parameters added to `create_context_manager_middleware()` factory.
+- **Examples** — 6 runnable examples in `examples/` covering all features:
+  auto-compression, persistence, callbacks, auto-detection, interactive chat,
+  standalone processors.
+
+### Changed
+
+- **`max_tokens` default** changed from `200_000` to `None` (auto-detect from
+  genai-prices, fallback to 200,000).
+- **`keep` default** changed from `("messages", 20)` to `("messages", 0)` —
+  on compression, only the LLM summary survives (like Claude Code). This produces
+  the most compact context after compression.
+- **Validation** now allows `0` for messages/tokens keep and trigger values
+  (previously required > 0). Negative values are still rejected.
+
+### Dependencies
+
+- `genai-prices` used for auto-detection of context windows (already a transitive
+  dependency via pydantic-ai-middleware).
+
 ## [0.0.3] - 2025-02-15
 
 ### Added
@@ -97,6 +151,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Requires `pydantic-ai>=0.1.0`
 - Optional `tiktoken` support for accurate token counting
 
+[0.0.4]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.4
 [0.0.3]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.3
 [0.0.2]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.2
 [0.0.1]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.1

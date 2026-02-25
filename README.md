@@ -124,20 +124,22 @@ processor = create_sliding_window_processor(
 
 ### Real-Time Context Manager
 
-Dual-protocol middleware combining token tracking, auto-compression, and tool output truncation:
+Dual-protocol middleware combining token tracking, auto-compression, message persistence, and tool output truncation:
 
 ```python
 from pydantic_ai import Agent
 from pydantic_ai_summarization import create_context_manager_middleware
 
 middleware = create_context_manager_middleware(
-    max_tokens=200_000,
+    model_name="openai:gpt-4.1",      # auto-detect max_tokens from genai-prices
     compress_threshold=0.9,
+    messages_path="messages.json",     # persist all messages
     on_usage_update=lambda pct, cur, mx: print(f"{pct:.0%} used ({cur:,}/{mx:,})"),
+    on_after_compress=lambda msgs: "Re-inject critical instructions here",
 )
 
 agent = Agent(
-    "openai:gpt-4o",
+    "openai:gpt-4.1",
     history_processors=[middleware],
 )
 ```
@@ -242,8 +244,11 @@ processor = create_summarization_processor(
 | **Two Strategies** | Intelligent summarization or fast sliding window |
 | **Flexible Triggers** | Message count, token count, or fraction-based |
 | **Safe Cutoff** | Never breaks tool call/response pairs |
-| **Custom Counters** | Bring your own token counting logic |
-| **Custom Prompts** | Control how summaries are generated |
+| **Auto max_tokens** | Auto-detect context window from genai-prices |
+| **Message Persistence** | Save all messages to JSON for session resume |
+| **Guided Compaction** | Focus summaries on specific topics |
+| **Callbacks** | on_before/after_compress with instruction re-injection |
+| **Async Token Counting** | Sync or async token counter support |
 | **Token Tracking** | Real-time usage monitoring with callbacks |
 | **Tool Truncation** | Automatic truncation of large tool outputs |
 | **Custom Models** | Use any pydantic-ai Model (Azure, custom providers) |

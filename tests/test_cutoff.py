@@ -70,21 +70,25 @@ class TestValidateContextSize:
         result = validate_context_size(("tokens", 100), "keep")
         assert result == ("tokens", 100)
 
-    def test_invalid_tokens_zero(self):
-        with pytest.raises(ValueError, match="greater than 0"):
-            validate_context_size(("tokens", 0), "keep")
+    def test_valid_tokens_zero(self):
+        result = validate_context_size(("tokens", 0), "keep")
+        assert result == ("tokens", 0)
 
     def test_invalid_tokens_negative(self):
-        with pytest.raises(ValueError, match="greater than 0"):
+        with pytest.raises(ValueError, match="non-negative"):
             validate_context_size(("tokens", -1), "keep")
 
     def test_valid_messages(self):
         result = validate_context_size(("messages", 50), "keep")
         assert result == ("messages", 50)
 
-    def test_invalid_messages_zero(self):
-        with pytest.raises(ValueError, match="greater than 0"):
-            validate_context_size(("messages", 0), "trigger")
+    def test_valid_messages_zero(self):
+        result = validate_context_size(("messages", 0), "keep")
+        assert result == ("messages", 0)
+
+    def test_invalid_messages_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            validate_context_size(("messages", -1), "trigger")
 
     def test_unsupported_type(self):
         with pytest.raises(ValueError, match="Unsupported context size type"):
@@ -295,10 +299,18 @@ class TestValidateTriggersAndKeep:
         )
         assert triggers == [("fraction", 0.8)]
 
-    def test_invalid_trigger(self):
-        with pytest.raises(ValueError, match="greater than 0"):
-            validate_triggers_and_keep(("tokens", 0), ("messages", 10), None)
+    def test_valid_trigger_zero(self):
+        triggers, keep = validate_triggers_and_keep(("tokens", 0), ("messages", 10), None)
+        assert triggers == [("tokens", 0)]
 
-    def test_invalid_keep(self):
-        with pytest.raises(ValueError, match="greater than 0"):
-            validate_triggers_and_keep(None, ("messages", 0), None)
+    def test_invalid_trigger_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            validate_triggers_and_keep(("tokens", -1), ("messages", 10), None)
+
+    def test_valid_keep_zero(self):
+        triggers, keep = validate_triggers_and_keep(None, ("messages", 0), None)
+        assert keep == ("messages", 0)
+
+    def test_invalid_keep_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            validate_triggers_and_keep(None, ("messages", -1), None)

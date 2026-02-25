@@ -1,6 +1,6 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.0.3"
+version = "0.0.4"
 description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"

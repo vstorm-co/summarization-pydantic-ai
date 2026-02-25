@@ -2,20 +2,34 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
-from typing import Literal
+from collections.abc import Awaitable, Callable, Sequence
+from typing import Literal, Union
 
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models import KnownModelName, Model
 
-# Type alias for token counting functions
-TokenCounter = Callable[[Sequence[ModelMessage]], int]
+# Type alias for token counting functions (sync or async)
+TokenCounter = Union[
+    Callable[[Sequence[ModelMessage]], int],
+    Callable[[Sequence[ModelMessage]], Awaitable[int]],
+]
 """Function type that counts tokens in a sequence of messages.
+
+Supports both synchronous and asynchronous callables. When an async
+callable is provided, the middleware will ``await`` the result.
 
 Example:
     ```python
+    # Sync counter (simple, fast)
     def my_token_counter(messages: Sequence[ModelMessage]) -> int:
         return sum(len(str(msg)) for msg in messages) // 4
+
+    # Async counter (using pydantic-ai's model-based counting)
+    async def model_token_counter(messages: Sequence[ModelMessage]) -> int:
+        from pydantic_ai import models
+        model = models.infer_model("openai:gpt-4.1")
+        usage = await model.count_tokens(list(messages), None, None)
+        return usage.request_tokens or 0
 
     processor = SummarizationProcessor(
         model="openai:gpt-4.1",

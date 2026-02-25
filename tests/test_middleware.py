@@ -51,7 +51,7 @@ class TestContextManagerInit:
         m = ContextManagerMiddleware()
         assert m.max_tokens == 200_000
         assert m.compress_threshold == 0.9
-        assert m.keep == ("messages", 20)
+        assert m.keep == ("messages", 0)
         assert m.summarization_model == "openai:gpt-4.1-mini"
         assert m.max_tool_output_tokens is None
         assert m.tool_output_head_lines == 5
@@ -90,9 +90,13 @@ class TestContextManagerInit:
         m = ContextManagerMiddleware(compress_threshold=1.0)
         assert m.compress_threshold == 1.0
 
-    def test_invalid_keep(self):
-        with pytest.raises(ValueError, match="greater than 0"):
-            ContextManagerMiddleware(keep=("messages", 0))
+    def test_valid_keep_zero(self):
+        m = ContextManagerMiddleware(keep=("messages", 0))
+        assert m.keep == ("messages", 0)
+
+    def test_invalid_keep_negative(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            ContextManagerMiddleware(keep=("messages", -1))
 
     def test_fraction_keep_requires_max_input_tokens(self):
         with pytest.raises(ValueError, match="max_input_tokens is required"):
@@ -191,7 +195,7 @@ class TestAutoCompression:
         with patch.object(m, "_compress", new_callable=AsyncMock) as mock_compress:
             mock_compress.return_value = msgs[-2:]
             await m(msgs)
-            mock_compress.assert_called_once_with(msgs)
+            mock_compress.assert_called_once_with(msgs, focus=None)
             assert m.compression_count == 1
 
     async def test_compress_not_triggered_below_threshold(self):
@@ -353,7 +357,7 @@ class TestFactory:
         m = create_context_manager_middleware()
         assert m.max_tokens == 200_000
         assert m.compress_threshold == 0.9
-        assert m.keep == ("messages", 20)
+        assert m.keep == ("messages", 0)
         assert m.summarization_model == "openai:gpt-4.1-mini"
         assert m.on_usage_update is None
 

@@ -28,6 +28,7 @@ Example:
 from contextlib import suppress
 from importlib.metadata import PackageNotFoundError, version
 
+from pydantic_ai_summarization._cutoff import async_count_tokens
 from pydantic_ai_summarization.processor import (
     DEFAULT_SUMMARY_PROMPT,
     SummarizationProcessor,
@@ -50,9 +51,12 @@ from pydantic_ai_summarization.types import (
 
 with suppress(ImportError):
     from pydantic_ai_summarization.middleware import (
+        AfterCompressCallback,
+        BeforeCompressCallback,
         ContextManagerMiddleware,
         UsageCallback,
         create_context_manager_middleware,
+        resolve_max_tokens,
     )
 
 try:
@@ -68,6 +72,8 @@ __all__ = [
     "SlidingWindowProcessor",
     "create_sliding_window_processor",
     # Main exports - Context Manager Middleware (requires [hybrid] extra)
+    "AfterCompressCallback",
+    "BeforeCompressCallback",
     "ContextManagerMiddleware",
     "UsageCallback",
     "create_context_manager_middleware",
@@ -83,6 +89,9 @@ __all__ = [
     "TokenCounter",
     # Constants
     "DEFAULT_SUMMARY_PROMPT",
+    # Utilities
+    "async_count_tokens",
+    "resolve_max_tokens",
     # Version
     "__version__",
 ]
