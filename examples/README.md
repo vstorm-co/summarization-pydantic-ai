@@ -44,3 +44,21 @@ uv run python examples/05_interactive_chat.py   # interactive
 - **Example 04**: Context windows auto-detected for various models without any API calls
 - **Example 05**: Try `/compact decorators` to focus compression, `/context` to see stats
 - **Example 06**: Compare summarization (remembers all topics) vs sliding window (loses old ones)
+
+---
+
+<div align="center">
+
+### Need help implementing this in your company?
+
+<p>We're <a href="https://vstorm.co"><b>Vstorm</b></a> — an Applied Agentic AI Engineering Consultancy<br>with 30+ production AI agent implementations.</p>
+
+<a href="https://vstorm.co/contact-us/">
+  <img src="https://img.shields.io/badge/Talk%20to%20us%20%E2%86%92-0066FF?style=for-the-badge&logoColor=white" alt="Talk to us">
+</a>
+
+<br><br>
+
+Made with ❤️ by <a href="https://vstorm.co"><b>Vstorm</b></a>
+
+</div>
