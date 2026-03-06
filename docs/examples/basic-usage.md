@@ -48,6 +48,30 @@ async def main():
     print(result.output)
 ```
 
+## Simple Agent with Limit Warnings
+
+Warn the agent before limits are hit:
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import create_limit_warner_processor
+
+processor = create_limit_warner_processor(
+    max_iterations=40,
+    max_context_tokens=100000,
+    max_total_tokens=200000,
+)
+
+agent = Agent(
+    "openai:gpt-4.1",
+    history_processors=[processor],
+)
+
+async def main():
+    result = await agent.run("Hello!")
+    print(result.output)
+```
+
 ## Custom Thresholds
 
 Configure when processing triggers:

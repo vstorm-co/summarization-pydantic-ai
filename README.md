@@ -17,6 +17,8 @@
   &nbsp;&bull;&nbsp;
   <b>Sliding Window</b> — zero-cost message trimming
   &nbsp;&bull;&nbsp;
+  <b>Limit Warnings</b> — finish-soon guidance before hard caps
+  &nbsp;&bull;&nbsp;
   <b>Context Manager</b> — real-time token tracking + tool truncation
   &nbsp;&bull;&nbsp;
   <b>Safe Cutoff</b> — preserves tool call pairs
@@ -94,6 +96,7 @@ result = await agent.run("Hello!")
 |-----------|----------|---------|---------------------|
 | `SummarizationProcessor` | High | High | Intelligent summary |
 | `SlidingWindowProcessor` | Zero | ~0ms | Discards old messages |
+| `LimitWarnerProcessor` | Zero | ~0ms | Full history + warning injection |
 | `ContextManagerMiddleware` | Per compression | Low tracking / High compression | Intelligent summary |
 
 ### Intelligent Summarization
@@ -119,6 +122,20 @@ from pydantic_ai_summarization import create_sliding_window_processor
 processor = create_sliding_window_processor(
     trigger=("messages", 100),  # When to trim
     keep=("messages", 50),      # What to keep
+)
+```
+
+### Limit Warnings
+
+Warn the agent before requests, context usage, or total tokens hit a cap:
+
+```python
+from pydantic_ai_summarization import create_limit_warner_processor
+
+processor = create_limit_warner_processor(
+    max_iterations=40,
+    max_context_tokens=100000,
+    max_total_tokens=200000,
 )
 ```
 

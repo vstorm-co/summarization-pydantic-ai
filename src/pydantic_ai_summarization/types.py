@@ -77,6 +77,21 @@ Examples:
     ```
 """
 
+WarningOn = Literal["iterations", "context_window", "total_tokens"]
+"""Warning categories supported by ``LimitWarnerProcessor``.
+
+Can be:
+- ``"iterations"`` - warn as request count approaches the configured maximum
+- ``"context_window"`` - warn as the current message history approaches the
+  configured context budget
+- ``"total_tokens"`` - warn as cumulative run token usage approaches the configured maximum
+
+Example:
+    ```python
+    warn_on: list[WarningOn] = ["iterations", "context_window"]
+    ```
+"""
+
 ModelType = str | Model | KnownModelName
 """Union type for model specification.
 
@@ -103,5 +118,6 @@ __all__ = [
     "ContextTokens",
     "ContextMessages",
     "ContextSize",
+    "WarningOn",
     "ModelType",
 ]

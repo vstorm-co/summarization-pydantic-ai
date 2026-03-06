@@ -10,3 +10,4 @@
         - ContextFraction
         - ContextTokens
         - ContextMessages
+        - WarningOn

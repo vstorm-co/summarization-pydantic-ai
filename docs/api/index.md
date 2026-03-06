@@ -14,6 +14,10 @@ from pydantic_ai_summarization import (
     SlidingWindowProcessor,
     create_sliding_window_processor,
 
+    # Main exports - Limit Warner
+    LimitWarnerProcessor,
+    create_limit_warner_processor,
+
     # Main exports - Context Manager Middleware (requires [hybrid] extra)
     ContextManagerMiddleware,
     UsageCallback,
@@ -28,6 +32,7 @@ from pydantic_ai_summarization import (
     ContextFraction,
     ContextTokens,
     ContextMessages,
+    WarningOn,
     TokenCounter,
 
     # Constants
@@ -41,21 +46,22 @@ from pydantic_ai_summarization import (
 |--------|-------------|
 | [Processor](processor.md) | `SummarizationProcessor` class and factory function |
 | [Sliding Window](sliding-window.md) | `SlidingWindowProcessor` class and factory function |
+| [Limit Warner](limit-warner.md) | `LimitWarnerProcessor` class and factory function |
 | [Middleware](middleware.md) | `ContextManagerMiddleware` class and factory function (requires `[hybrid]` extra) |
 | [Types](types.md) | Type definitions and aliases |
 
 ## Processors Comparison
 
-| Feature | SummarizationProcessor | SlidingWindowProcessor | ContextManagerMiddleware |
-|---------|----------------------|----------------------|------------------------|
-| LLM Cost | High | Zero | Per compression |
-| Latency | High | ~0ms | Low (tracking) / High (compression) |
-| Context Preservation | Intelligent | None | Intelligent |
-| Token Tracking | No | No | Built-in |
-| Usage Callbacks | No | No | Yes |
-| Tool Output Truncation | No | No | Yes |
-| `model` param | Required | Not needed | Optional (for summaries) |
-| Requires extra | No | No | `[hybrid]` |
+| Feature | SummarizationProcessor | SlidingWindowProcessor | LimitWarnerProcessor | ContextManagerMiddleware |
+|---------|----------------------|----------------------|----------------------|------------------------|
+| LLM Cost | High | Zero | Zero | Per compression |
+| Latency | High | ~0ms | ~0ms | Low (tracking) / High (compression) |
+| Context Preservation | Intelligent | None | Full history | Intelligent |
+| Token Tracking | No | No | Built-in warnings | Built-in |
+| Usage Callbacks | No | No | No | Yes |
+| Tool Output Truncation | No | No | No | Yes |
+| `model` param | Required | Not needed | Not needed | Optional (for summaries) |
+| Requires extra | No | No | No | `[hybrid]` |
 
 ## Quick Examples
 
@@ -85,6 +91,24 @@ from pydantic_ai_summarization import create_sliding_window_processor
 processor = create_sliding_window_processor(
     trigger=("messages", 100),
     keep=("messages", 50),
+)
+
+agent = Agent(
+    "openai:gpt-4.1",
+    history_processors=[processor],
+)
+```
+
+### Limit Warner
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import create_limit_warner_processor
+
+processor = create_limit_warner_processor(
+    max_iterations=40,
+    max_context_tokens=100000,
+    max_total_tokens=200000,
 )
 
 agent = Agent(

@@ -4,20 +4,25 @@ summarization-pydantic-ai provides automatic conversation context management for
 
 ## Overview
 
-When agent conversations grow long, they can exceed the model's context window. This library solves that by providing two strategies:
+When agent conversations grow long, they can exceed the model's context window. This
+library solves that with standalone processors for compaction and warning injection:
 
 | Strategy | Description | Cost | Speed |
 |----------|-------------|------|-------|
 | [SummarizationProcessor](processor.md) | Uses LLM to summarize old messages | High | Slow |
 | [SlidingWindowProcessor](sliding-window.md) | Simply discards old messages | Zero | Instant |
+| [LimitWarnerProcessor](limit-warner.md) | Injects finish-soon warnings as limits approach | Zero | Instant |
 
-Both processors:
+The compaction processors:
 
 1. **Monitor** conversation length (messages or tokens)
 2. **Trigger** processing when thresholds are reached
 3. **Find safe cutoff** that preserves tool call pairs
 4. **Process** older messages (summarize or discard)
 5. **Preserve** recent messages for context continuity
+
+The warning processor complements those strategies by notifying the agent before
+limits are hit, without changing the message history structure.
 
 ## Key Components
 
@@ -60,6 +65,26 @@ agent = Agent(
 )
 ```
 
+### LimitWarnerProcessor
+
+Warning-only processor with no LLM cost:
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import LimitWarnerProcessor
+
+processor = LimitWarnerProcessor(
+    max_iterations=40,
+    max_context_tokens=100000,
+    max_total_tokens=200000,
+)
+
+agent = Agent(
+    "openai:gpt-4.1",
+    history_processors=[processor],
+)
+```
+
 ### Factory Functions
 
 Convenience functions with sensible defaults:
@@ -68,6 +93,7 @@ Convenience functions with sensible defaults:
 from pydantic_ai_summarization import (
     create_summarization_processor,
     create_sliding_window_processor,
+    create_limit_warner_processor,
 )
 
 # Summarization with defaults
@@ -80,6 +106,12 @@ summarizer = create_summarization_processor(
 window = create_sliding_window_processor(
     trigger=("messages", 100),
     keep=("messages", 50),
+)
+
+# Limit warnings with defaults for the configured caps
+warner = create_limit_warner_processor(
+    max_iterations=40,
+    max_context_tokens=100000,
 )
 ```
 
@@ -158,6 +190,7 @@ Both processors ensure tool call/response pairs are never split:
 |-------------|-------------|
 | Context quality is critical | SummarizationProcessor |
 | Speed and cost are priorities | SlidingWindowProcessor |
+| You want the agent to finish before a hard limit | LimitWarnerProcessor |
 | Running many parallel conversations | SlidingWindowProcessor |
 | Long-running coding sessions | SummarizationProcessor |
 | Simple chatbots | SlidingWindowProcessor |
@@ -168,4 +201,5 @@ Both processors ensure tool call/response pairs are never split:
 - Learn about [Triggers](triggers.md)
 - See the [SummarizationProcessor](processor.md) details
 - See the [SlidingWindowProcessor](sliding-window.md) details
+- See the [LimitWarnerProcessor](limit-warner.md) details
 - View [Examples](../examples/index.md)

@@ -145,6 +145,7 @@ nav:
     - concepts/index.md
     - Summarization Processor: concepts/processor.md
     - Sliding Window Processor: concepts/sliding-window.md
+    - Limit Warner Processor: concepts/limit-warner.md
     - Triggers & Keep: concepts/triggers.md
   - Advanced:
     - Context Manager Middleware: advanced/context-manager.md
@@ -157,6 +158,7 @@ nav:
     - api/index.md
     - SummarizationProcessor: api/processor.md
     - SlidingWindowProcessor: api/sliding-window.md
+    - LimitWarnerProcessor: api/limit-warner.md
     - ContextManagerMiddleware: api/middleware.md
     - Types: api/types.md
   - Changelog: changelog.md

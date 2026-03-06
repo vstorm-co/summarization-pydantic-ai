@@ -29,6 +29,10 @@ from contextlib import suppress
 from importlib.metadata import PackageNotFoundError, version
 
 from pydantic_ai_summarization._cutoff import async_count_tokens
+from pydantic_ai_summarization.limit_warner import (
+    LimitWarnerProcessor,
+    create_limit_warner_processor,
+)
 from pydantic_ai_summarization.processor import (
     DEFAULT_SUMMARY_PROMPT,
     SummarizationProcessor,
@@ -47,6 +51,7 @@ from pydantic_ai_summarization.types import (
     ContextTokens,
     ModelType,
     TokenCounter,
+    WarningOn,
 )
 
 with suppress(ImportError):
@@ -71,6 +76,9 @@ __all__ = [
     # Main exports - Sliding Window
     "SlidingWindowProcessor",
     "create_sliding_window_processor",
+    # Main exports - Limit Warner
+    "LimitWarnerProcessor",
+    "create_limit_warner_processor",
     # Main exports - Context Manager Middleware (requires [hybrid] extra)
     "AfterCompressCallback",
     "BeforeCompressCallback",
@@ -85,6 +93,7 @@ __all__ = [
     "ContextFraction",
     "ContextTokens",
     "ContextMessages",
+    "WarningOn",
     "ModelType",
     "TokenCounter",
     # Constants

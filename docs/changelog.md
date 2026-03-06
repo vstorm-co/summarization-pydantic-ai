@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`LimitWarnerProcessor`** — standalone history processor that injects warnings
+  as request count, current context usage, or total-token usage approach a limit
+- **`create_limit_warner_processor()`** factory function
+- **`WarningOn`** type alias for selecting warning categories
+
 ## [0.0.4] - 2026-02-25
 
 ### Added
