@@ -473,6 +473,19 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
         path.write_bytes(data)
 
     # -- Internal methods --
+    def _get_initial_system_prompt_parts(self, messages: list[ModelMessage]) -> list[SystemPromptPart]:
+        """Get the initial system prompt parts of the conversation"""
+        system_messages_parts = []
+        for message in messages:
+            if not isinstance(message, ModelRequest):
+                break
+            for part in message.parts:
+                if isinstance(part, SystemPromptPart):
+                    system_messages_parts.append(part)
+                else:
+                    return system_messages_parts
+        
+        return system_messages_parts
 
     async def _notify_usage(self, pct: float, current: int, maximum: int) -> None:
         """Call the usage callback if set, handling sync and async."""
@@ -505,6 +518,7 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
         if cutoff_index <= 0:
             return messages
 
+        system_msg_parts = self._get_initial_system_prompt_parts(messages)
         messages_to_summarize = messages[:cutoff_index]  # pragma: no cover
         preserved_messages = messages[cutoff_index:]  # pragma: no cover
 
@@ -518,10 +532,9 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
             messages_to_summarize, focus=focus
         )
 
+        all_parts = system_msg_parts + [SystemPromptPart(content=f"Summary of previous conversation:\n\n{summary}")]
         summary_message = ModelRequest(  # pragma: no cover
-            parts=[
-                SystemPromptPart(content=f"Summary of previous conversation:\n\n{summary}"),
-            ]
+            parts=all_parts
         )
 
         return [summary_message, *preserved_messages]  # pragma: no cover
