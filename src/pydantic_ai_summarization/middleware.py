@@ -61,6 +61,7 @@ from pydantic_ai_summarization._cutoff import (
 )
 from pydantic_ai_summarization.processor import (
     DEFAULT_SUMMARY_PROMPT,
+    DEFAULT_CONTINUATION_PROMPT,
     count_tokens_approximately,
     format_messages_for_summary,
 )
@@ -178,6 +179,7 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
         summarization_model: Model used for generating summaries.
         token_counter: Function to count tokens in messages.
         summary_prompt: Prompt template for summary generation.
+        continuation_prompt: Custom prompt template that prepends the the summarized conversation.
         trim_tokens_to_summarize: Max tokens to include when generating the summary.
         max_input_tokens: Model max input tokens (for fraction-based keep).
         max_tool_output_tokens: Per-tool-output token limit before truncation.
@@ -224,6 +226,9 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
 
     summary_prompt: str = DEFAULT_SUMMARY_PROMPT
     """Prompt template for summary generation."""
+
+    continuation_prompt: str = DEFAULT_CONTINUATION_PROMPT
+    """Custom prompt template that prepends the the summarized conversation."""
 
     trim_tokens_to_summarize: int = 4000
     """Max tokens to include when generating the summary."""
@@ -532,7 +537,7 @@ class ContextManagerMiddleware(AgentMiddleware[Any]):  # type: ignore[misc]
             messages_to_summarize, focus=focus
         )
 
-        all_parts = system_msg_parts + [SystemPromptPart(content=f"Summary of previous conversation:\n\n{summary}")]
+        all_parts = system_msg_parts + [SystemPromptPart(content=f"{self.continuation_prompt}{summary}")]
         summary_message = ModelRequest(  # pragma: no cover
             parts=all_parts
         )
@@ -616,6 +621,7 @@ def create_context_manager_middleware(
     summarization_model: ModelType = "openai:gpt-4.1-mini",
     token_counter: TokenCounter | None = None,
     summary_prompt: str | None = None,
+    continuation_prompt: str | None = None,
     max_tool_output_tokens: int | None = None,
     tool_output_head_lines: int = 5,
     tool_output_tail_lines: int = 5,
@@ -637,6 +643,7 @@ def create_context_manager_middleware(
         summarization_model: Model used for generating summaries.
         token_counter: Custom token counter (default: approximate char-based).
         summary_prompt: Custom prompt template for summaries.
+        continuation_prompt: Custom prompt template that prepends the the summarized conversation.
         max_tool_output_tokens: Per-tool-output token limit before truncation.
         tool_output_head_lines: Lines from start of truncated output.
         tool_output_tail_lines: Lines from end of truncated output.
@@ -672,6 +679,8 @@ def create_context_manager_middleware(
         kwargs["token_counter"] = token_counter
     if summary_prompt is not None:
         kwargs["summary_prompt"] = summary_prompt
+    if continuation_prompt is not None:
+        kwargs["continuation_prompt"] = continuation_prompt
     if on_usage_update is not None:
         kwargs["on_usage_update"] = on_usage_update
     if on_before_compress is not None:

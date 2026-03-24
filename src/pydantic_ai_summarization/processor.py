@@ -72,6 +72,8 @@ DEFAULT_SUMMARY_PROMPT = (
 )
 """Default prompt template used for generating summaries."""
 
+DEFAULT_CONTINUATION_PROMPT = "Summary of previous conversation:\n\n"
+
 _DEFAULT_MESSAGES_TO_KEEP = 20
 _DEFAULT_TRIGGER_TOKENS = 170000
 _DEFAULT_TRIM_TOKEN_LIMIT = 4000
