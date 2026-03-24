@@ -52,6 +52,9 @@ Homepage = "https://github.com/vstorm-co/summarization-pydantic-ai"
 Repository = "https://github.com/vstorm-co/summarization-pydantic-ai"
 Issues = "https://github.com/vstorm-co/summarization-pydantic-ai/issues"
 
+[tool.uv.sources]
+pydantic-ai-slim = { git = "https://github.com/pydantic/pydantic-ai.git", branch = "capabilities", subdirectory = "pydantic_ai_slim" }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
