@@ -64,7 +64,47 @@ For real-time token tracking and tool output truncation:
 pip install summarization-pydantic-ai[hybrid]
 ```
 
-## Quick Start
+## Quick Start — Capabilities (Recommended)
+
+The recommended way to add context management is via pydantic-ai's native [Capabilities API](https://ai.pydantic.dev/capabilities/):
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import ContextManagerCapability
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[ContextManagerCapability(max_tokens=100_000)],
+)
+
+result = await agent.run("Hello!")
+```
+
+**That's it.** Your agent now:
+
+- Tracks token usage on every turn
+- Auto-compresses when approaching the limit (90% by default)
+- Truncates large tool outputs
+- Auto-detects context window size from the model
+- Preserves tool call/response pairs (never breaks them)
+
+### Combine with Limit Warnings
+
+```python
+from pydantic_ai_summarization import ContextManagerCapability, LimitWarnerCapability
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[
+        LimitWarnerCapability(max_iterations=40, max_context_tokens=100_000),
+        ContextManagerCapability(max_tokens=100_000),
+    ],
+)
+```
+
+### Alternative: Processor API
+
+For standalone use without capabilities:
 
 ```python
 from pydantic_ai import Agent
@@ -75,20 +115,8 @@ processor = create_summarization_processor(
     keep=("messages", 20),
 )
 
-agent = Agent(
-    "openai:gpt-4o",
-    history_processors=[processor],
-)
-
-result = await agent.run("Hello!")
+agent = Agent("openai:gpt-4.1", history_processors=[processor])
 ```
-
-**That's it.** Your agent now:
-
-- Monitors conversation size on every turn
-- Summarizes older messages when limits are reached
-- Preserves tool call/response pairs (never breaks them)
-- Keeps recent context intact
 
 ## Available Processors
 

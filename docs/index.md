@@ -26,19 +26,47 @@ Automatic conversation summarization and context management for [Pydantic AI](ht
 
 </div>
 
-## Available Processors
+## Quick Start — Capabilities (Recommended)
 
-| Processor | LLM Cost | Latency | Context Preservation | Best For |
-|-----------|----------|---------|---------------------|----------|
-| [`ContextManagerMiddleware`](advanced/context-manager.md) | Per compression | Low tracking | Intelligent summary + persistence | Production apps |
-| [`SummarizationProcessor`](concepts/processor.md) | High | High | Intelligent summary | Quality-focused apps |
-| [`SlidingWindowProcessor`](concepts/sliding-window.md) | Zero | ~0ms | Discards old messages | Speed/cost-focused apps |
+The recommended way to add context management:
 
-## Quick Start
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import ContextManagerCapability
 
-### Intelligent Summarization
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[ContextManagerCapability(max_tokens=100_000)],
+)
+```
 
-Uses an LLM to create summaries of older messages:
+Combine with limit warnings:
+
+```python
+from pydantic_ai_summarization import ContextManagerCapability, LimitWarnerCapability
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[
+        LimitWarnerCapability(max_iterations=40, max_context_tokens=100_000),
+        ContextManagerCapability(max_tokens=100_000),
+    ],
+)
+```
+
+## Available Options
+
+| Option | Type | LLM Cost | Best For |
+|--------|------|----------|----------|
+| `ContextManagerCapability` | Capability | Per compression | Production apps (recommended) |
+| `SummarizationCapability` | Capability | High | Quality-focused apps |
+| `SlidingWindowCapability` | Capability | Zero | Speed/cost-focused apps |
+| `LimitWarnerCapability` | Capability | Zero | Warning before limits hit |
+| `SummarizationProcessor` | Processor | High | Standalone use |
+| `SlidingWindowProcessor` | Processor | Zero | Standalone use |
+| `LimitWarnerProcessor` | Processor | Zero | Standalone use |
+
+## Alternative: Processor API
 
 ```python
 from pydantic_ai import Agent

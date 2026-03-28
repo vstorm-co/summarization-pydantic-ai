@@ -1,6 +1,6 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.0.5"
+version = "0.1.0"
 description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"
@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pydantic-ai-slim>=0.1.0",
+    "pydantic-ai-slim>=1.71.0",
 ]
 
 [project.optional-dependencies]
@@ -51,6 +51,7 @@ dev = [
 Homepage = "https://github.com/vstorm-co/summarization-pydantic-ai"
 Repository = "https://github.com/vstorm-co/summarization-pydantic-ai"
 Issues = "https://github.com/vstorm-co/summarization-pydantic-ai/issues"
+
 
 [build-system]
 requires = ["hatchling"]

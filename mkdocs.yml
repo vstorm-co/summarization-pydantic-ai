@@ -143,6 +143,7 @@ nav:
   - Getting Help: getting-help.md
   - Core Concepts:
     - concepts/index.md
+    - Capabilities: concepts/capability.md
     - Summarization Processor: concepts/processor.md
     - Sliding Window Processor: concepts/sliding-window.md
     - Limit Warner Processor: concepts/limit-warner.md
@@ -156,6 +157,7 @@ nav:
     - Context Manager: examples/context-manager.md
   - API Reference:
     - api/index.md
+    - Capabilities: api/capability.md
     - SummarizationProcessor: api/processor.md
     - SlidingWindowProcessor: api/sliding-window.md
     - LimitWarnerProcessor: api/limit-warner.md

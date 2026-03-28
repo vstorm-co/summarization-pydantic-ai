@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-03-26
+
+### Added
+
+- **4 pydantic-ai capabilities** — native [capabilities](https://ai.pydantic.dev/capabilities/) replacing the need for `pydantic-ai-middleware`:
+  - **`SummarizationCapability`** — LLM-based history compression via `before_model_request`
+  - **`SlidingWindowCapability`** — zero-cost message trimming via `before_model_request`
+  - **`LimitWarnerCapability`** — warning injection when limits approach via `before_model_request`
+  - **`ContextManagerCapability`** — full context management with token tracking, auto-compression (`before_model_request`), tool output truncation (`after_tool_execute`), auto-detect `max_tokens` via `for_run`, and `compact()` method callable outside `agent.run()`
+- All capabilities support AgentSpec YAML serialization
+
+### Changed
+
+- **Minimum pydantic-ai version bumped to `>=1.71.0`** (capabilities API support)
+
+### Deprecated
+
+- `ContextManagerMiddleware` (the `AgentMiddleware` subclass in `middleware.py`) — use `ContextManagerCapability` instead
+
 ## [0.0.5] - 2026-03-21
 
 ### Added

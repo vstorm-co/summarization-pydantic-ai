@@ -2,24 +2,52 @@
 
 Get started with conversation context management.
 
-## Simple Agent with Summarization
+## Using Capabilities (Recommended)
 
-The simplest way to add summarization to an agent:
+The simplest way to add context management:
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import ContextManagerCapability
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[ContextManagerCapability(max_tokens=100_000)],
+)
+
+async def main():
+    result = await agent.run("Hello!")
+    print(result.output)
+```
+
+## With Limit Warnings
+
+```python
+from pydantic_ai import Agent
+from pydantic_ai_summarization import ContextManagerCapability, LimitWarnerCapability
+
+agent = Agent(
+    "openai:gpt-4.1",
+    capabilities=[
+        LimitWarnerCapability(max_iterations=40, max_context_tokens=100_000),
+        ContextManagerCapability(max_tokens=100_000),
+    ],
+)
+```
+
+## Using Processor API (Alternative)
 
 ```python
 from pydantic_ai import Agent
 from pydantic_ai_summarization import create_summarization_processor
 
-# Create processor with defaults
 processor = create_summarization_processor()
 
-# Create agent with processor
 agent = Agent(
     "openai:gpt-4.1",
     history_processors=[processor],
 )
 
-# Use the agent normally
 async def main():
     result = await agent.run("Hello!")
     print(result.output)

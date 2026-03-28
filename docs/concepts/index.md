@@ -5,13 +5,28 @@ summarization-pydantic-ai provides automatic conversation context management for
 ## Overview
 
 When agent conversations grow long, they can exceed the model's context window. This
-library solves that with standalone processors for compaction and warning injection:
+library provides two approaches:
 
-| Strategy | Description | Cost | Speed |
-|----------|-------------|------|-------|
-| [SummarizationProcessor](processor.md) | Uses LLM to summarize old messages | High | Slow |
-| [SlidingWindowProcessor](sliding-window.md) | Simply discards old messages | Zero | Instant |
-| [LimitWarnerProcessor](limit-warner.md) | Injects finish-soon warnings as limits approach | Zero | Instant |
+### Capabilities (Recommended)
+
+Native pydantic-ai [capabilities](https://ai.pydantic.dev/capabilities/) — plug and play:
+
+| Capability | Description | Cost |
+|------------|-------------|------|
+| [ContextManagerCapability](capability.md) | Full context management + tool truncation | Per compression |
+| [SummarizationCapability](capability.md) | LLM-based history compression | High |
+| [SlidingWindowCapability](capability.md) | Zero-cost message trimming | Zero |
+| [LimitWarnerCapability](capability.md) | Warning injection before limits | Zero |
+
+### Standalone Processors
+
+Lower-level API for use with `history_processors=`:
+
+| Processor | Description | Cost |
+|-----------|-------------|------|
+| [SummarizationProcessor](processor.md) | Uses LLM to summarize old messages | High |
+| [SlidingWindowProcessor](sliding-window.md) | Simply discards old messages | Zero |
+| [LimitWarnerProcessor](limit-warner.md) | Injects finish-soon warnings | Zero |
 
 The compaction processors:
 
