@@ -58,12 +58,6 @@ For accurate token counting:
 pip install summarization-pydantic-ai[tiktoken]
 ```
 
-For real-time token tracking and tool output truncation:
-
-```bash
-pip install summarization-pydantic-ai[hybrid]
-```
-
 ## Quick Start — Capabilities (Recommended)
 
 The recommended way to add context management is via pydantic-ai's native [Capabilities API](https://ai.pydantic.dev/capabilities/):
@@ -122,10 +116,10 @@ agent = Agent("openai:gpt-4.1", history_processors=[processor])
 
 | Processor | LLM Cost | Latency | Context Preservation |
 |-----------|----------|---------|---------------------|
+| `ContextManagerCapability` | Per compression | Low tracking | Intelligent summary + tool truncation |
 | `SummarizationProcessor` | High | High | Intelligent summary |
 | `SlidingWindowProcessor` | Zero | ~0ms | Discards old messages |
 | `LimitWarnerProcessor` | Zero | ~0ms | Full history + warning injection |
-| `ContextManagerMiddleware` | Per compression | Low tracking / High compression | Intelligent summary |
 
 ### Intelligent Summarization
 
@@ -167,29 +161,23 @@ processor = create_limit_warner_processor(
 )
 ```
 
-### Real-Time Context Manager
+### Context Manager Capability
 
-Dual-protocol middleware combining token tracking, auto-compression, message persistence, and tool output truncation:
+Full context management with token tracking, auto-compression, and tool output truncation:
 
 ```python
 from pydantic_ai import Agent
-from pydantic_ai_summarization import create_context_manager_middleware
-
-middleware = create_context_manager_middleware(
-    model_name="openai:gpt-4.1",      # auto-detect max_tokens from genai-prices
-    compress_threshold=0.9,
-    messages_path="messages.json",     # persist all messages
-    on_usage_update=lambda pct, cur, mx: print(f"{pct:.0%} used ({cur:,}/{mx:,})"),
-    on_after_compress=lambda msgs: "Re-inject critical instructions here",
-)
+from pydantic_ai_summarization import ContextManagerCapability
 
 agent = Agent(
     "openai:gpt-4.1",
-    history_processors=[middleware],
+    capabilities=[ContextManagerCapability(
+        max_tokens=100_000,
+        compress_threshold=0.9,
+        max_tool_output_tokens=5000,
+    )],
 )
 ```
-
-Requires `pip install summarization-pydantic-ai[hybrid]`
 
 ## Trigger Types
 

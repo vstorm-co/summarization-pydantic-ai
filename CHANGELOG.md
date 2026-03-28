@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-03-28
+
+### Fixed
+
+- **System prompts preserved during compression** — previously, compression replaced the entire message history including original system prompts (tool descriptions, skill lists, agent instructions). Now `_extract_system_prompts()` preserves leading `SystemPromptPart` entries and prepends them to the summary message. ([#12](https://github.com/vstorm-co/summarization-pydantic-ai/pull/12), reported by [@ilayu-blip](https://github.com/ilayu-blip))
+
+### Added
+
+- **`DEFAULT_CONTINUATION_PROMPT`** constant — customizable prefix for the summary message (default: `"Summary of previous conversation:\n\n"`)
+
+### Removed
+
+- **`ContextManagerMiddleware`** and `pydantic-ai-middleware` dependency — replaced by `ContextManagerCapability` (pydantic-ai native capabilities). The `[hybrid]` extra is no longer needed.
+- **`middleware.py`** module — all functionality now in `capability.py` and standalone processors
+
 ## [0.1.0] - 2026-03-26
 
 ### Added

@@ -5,12 +5,12 @@ The recommended way to add context management to a Pydantic AI agent is via
 
 ## Why Capabilities?
 
-| Feature | Capabilities | Processor API | ContextManagerMiddleware |
-|---------|:-:|:-:|:-:|
-| Native pydantic-ai | Yes | Yes | Needs pydantic-ai-middleware |
-| Tool output truncation | `ContextManagerCapability` | No | Yes |
-| Auto-detect max_tokens | `ContextManagerCapability` | No | Yes |
-| `compact()` outside run | `ContextManagerCapability` | No | Yes |
+| Feature | Capabilities | Processor API |
+|---------|:-:|:-:|
+| Native pydantic-ai | Yes | Yes |
+| Tool output truncation | `ContextManagerCapability` | No |
+| Auto-detect max_tokens | `ContextManagerCapability` | No |
+| `compact()` outside run | `ContextManagerCapability` | No |
 | AgentSpec YAML | Yes | No | No |
 
 ## Available Capabilities

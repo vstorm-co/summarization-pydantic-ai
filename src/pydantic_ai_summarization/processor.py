@@ -72,6 +72,29 @@ DEFAULT_SUMMARY_PROMPT = (
 )
 """Default prompt template used for generating summaries."""
 
+DEFAULT_CONTINUATION_PROMPT = "Summary of previous conversation:\n\n"
+"""Default prefix prepended to the summary in the compressed message."""
+
+
+def _extract_system_prompts(messages: list[ModelMessage]) -> list[SystemPromptPart]:
+    """Extract system prompt parts from the start of the conversation.
+
+    Walks the message history from the beginning, collecting SystemPromptPart
+    entries from the leading ModelRequest messages. Stops at the first
+    non-SystemPromptPart or non-ModelRequest message.
+    """
+    parts: list[SystemPromptPart] = []
+    for message in messages:
+        if not isinstance(message, ModelRequest):
+            break
+        for part in message.parts:
+            if isinstance(part, SystemPromptPart):
+                parts.append(part)
+            else:
+                return parts
+    return parts
+
+
 _DEFAULT_MESSAGES_TO_KEEP = 20
 _DEFAULT_TRIGGER_TOKENS = 170000
 _DEFAULT_TRIM_TOKEN_LIMIT = 4000
@@ -372,16 +395,18 @@ class SummarizationProcessor:
             return messages
 
         # The following code path requires an LLM call, so is covered by integration tests
+        system_parts = _extract_system_prompts(messages)  # pragma: no cover
         messages_to_summarize = messages[:cutoff_index]  # pragma: no cover
         preserved_messages = messages[cutoff_index:]  # pragma: no cover
 
         summary = await self._create_summary(messages_to_summarize)  # pragma: no cover
 
-        # Create a summary message
+        # Create summary message with preserved system prompts
+        summary_part = SystemPromptPart(  # pragma: no cover
+            content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}"
+        )
         summary_message = ModelRequest(  # pragma: no cover
-            parts=[
-                SystemPromptPart(content=f"Summary of previous conversation:\n\n{summary}"),
-            ]
+            parts=[*system_parts, summary_part]
         )
 
         return [summary_message, *preserved_messages]  # pragma: no cover

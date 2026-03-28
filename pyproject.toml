@@ -1,6 +1,6 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.1.0"
+version = "0.1.1"
 description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"
@@ -28,11 +28,7 @@ dependencies = [
 tiktoken = [
     "tiktoken>=0.5.0",
 ]
-hybrid = [
-    "pydantic-ai-middleware>=0.2.0",
-]
 dev = [
-    "pydantic-ai-middleware>=0.2.0",
     "pytest>=9.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=7.0.0",

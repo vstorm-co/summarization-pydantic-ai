@@ -1,31 +1,22 @@
-"""Automatic conversation summarization for pydantic-ai agents.
+"""summarization-pydantic-ai — Context management for Pydantic AI agents.
 
-This package provides history processors for automatic conversation summarization,
-helping manage context window limits in long-running agent conversations.
+Automatic conversation summarization, sliding window trimming, limit warnings,
+and full context management via pydantic-ai capabilities.
 
 Example:
     ```python
     from pydantic_ai import Agent
-    from pydantic_ai_summarization import create_summarization_processor
-
-    # Create a processor that triggers at 100k tokens and keeps 20 messages
-    processor = create_summarization_processor(
-        trigger=("tokens", 100000),
-        keep=("messages", 20),
-    )
+    from pydantic_ai_summarization import ContextManagerCapability
 
     agent = Agent(
         "openai:gpt-4.1",
-        history_processors=[processor],
+        capabilities=[ContextManagerCapability(max_tokens=100_000)],
     )
-
-    # The processor will automatically summarize older messages
-    # when the conversation grows too long
-    result = await agent.run("Hello!")
     ```
 """
 
-from contextlib import suppress
+from __future__ import annotations
+
 from importlib.metadata import PackageNotFoundError, version
 
 from pydantic_ai_summarization._cutoff import async_count_tokens
@@ -40,6 +31,7 @@ from pydantic_ai_summarization.limit_warner import (
     create_limit_warner_processor,
 )
 from pydantic_ai_summarization.processor import (
+    DEFAULT_CONTINUATION_PROMPT,
     DEFAULT_SUMMARY_PROMPT,
     SummarizationProcessor,
     count_tokens_approximately,
@@ -60,45 +52,28 @@ from pydantic_ai_summarization.types import (
     WarningOn,
 )
 
-with suppress(ImportError):
-    from pydantic_ai_summarization.middleware import (
-        AfterCompressCallback,
-        BeforeCompressCallback,
-        ContextManagerMiddleware,
-        UsageCallback,
-        create_context_manager_middleware,
-        resolve_max_tokens,
-    )
-
 try:
     __version__ = version("summarization-pydantic-ai")
 except PackageNotFoundError:  # pragma: no cover
     __version__ = "0.0.0"
 
 __all__ = [
-    # Main exports - Summarization
-    "SummarizationProcessor",
-    "create_summarization_processor",
-    # Main exports - Sliding Window
-    "SlidingWindowProcessor",
-    "create_sliding_window_processor",
-    # Main exports - Limit Warner
-    "LimitWarnerProcessor",
-    "create_limit_warner_processor",
-    # Capabilities (pydantic-ai native — no middleware dependency)
+    # Capabilities (recommended)
     "SummarizationCapability",
     "SlidingWindowCapability",
     "LimitWarnerCapability",
     "ContextManagerCapability",
-    # Main exports - Context Manager Middleware (requires [hybrid] extra)
-    "AfterCompressCallback",
-    "BeforeCompressCallback",
-    "ContextManagerMiddleware",
-    "UsageCallback",
-    "create_context_manager_middleware",
+    # Processors (standalone)
+    "SummarizationProcessor",
+    "create_summarization_processor",
+    "SlidingWindowProcessor",
+    "create_sliding_window_processor",
+    "LimitWarnerProcessor",
+    "create_limit_warner_processor",
     # Utilities
     "count_tokens_approximately",
     "format_messages_for_summary",
+    "async_count_tokens",
     # Types
     "ContextSize",
     "ContextFraction",
@@ -109,9 +84,7 @@ __all__ = [
     "TokenCounter",
     # Constants
     "DEFAULT_SUMMARY_PROMPT",
-    # Utilities
-    "async_count_tokens",
-    "resolve_max_tokens",
+    "DEFAULT_CONTINUATION_PROMPT",
     # Version
     "__version__",
 ]
