@@ -57,20 +57,18 @@ def _make_messages(
     ]
 
 
-def _last_request(messages: list[ModelMessage]) -> ModelRequest:
-    """Get the trailing ModelRequest."""
-    last_message = messages[-1]
-    assert isinstance(last_message, ModelRequest)
-    return last_message
-
-
-def _generated_warning_parts(messages: list[ModelMessage]) -> list[SystemPromptPart]:
-    """Return generated warning parts from the trailing request."""
-    return [
-        part
-        for part in _last_request(messages).parts
-        if isinstance(part, SystemPromptPart) and _WARNING_MARKER in part.content
-    ]
+def _generated_warning_text(messages: list[ModelMessage]) -> str | None:
+    """Return generated warning text from the last matching request part."""
+    for msg in reversed(messages):
+        if not isinstance(msg, ModelRequest):
+            continue
+        for part in msg.parts:
+            if isinstance(part, UserPromptPart) and isinstance(part.content, str):
+                if _WARNING_MARKER in part.content:
+                    return part.content
+            if isinstance(part, SystemPromptPart) and _WARNING_MARKER in part.content:
+                return part.content
+    return None
 
 
 class TestLimitWarnerProcessor:
@@ -179,10 +177,8 @@ class TestLimitWarnerProcessor:
         ctx = _make_ctx(requests=8, input_tokens=70, output_tokens=40)
 
         result = await processor(ctx, messages)
-        warning_parts = _generated_warning_parts(result)
-        assert len(warning_parts) == 1
-
-        warning = warning_parts[0].content
+        warning = _generated_warning_text(result)
+        assert warning is not None
         assert "CRITICAL: Configured run limits are approaching." in warning
         assert "Iterations: 8/10 requests used (80%); 2 remaining." in warning
         assert "Context window: 110/100 tokens used (110%); 0 remaining." in warning
@@ -210,16 +206,17 @@ class TestLimitWarnerProcessor:
             first_result,
         )
 
-        last_request = _last_request(second_result)
-        warning_parts = _generated_warning_parts(second_result)
-        assert len(warning_parts) == 1
-        assert len(last_request.parts) == 3
+        conversation_request = second_result[-2]
+        assert isinstance(conversation_request, ModelRequest)
+        warning_text = _generated_warning_text(second_result)
+        assert warning_text is not None
+        assert len(conversation_request.parts) == 2
         assert any(
             isinstance(part, SystemPromptPart) and part.content == "Keep replies short."
-            for part in last_request.parts
+            for part in conversation_request.parts
         )
-        assert "Iterations: 9/10 requests used (90%); 1 remaining." in warning_parts[0].content
-        assert "Iterations: 8/10 requests used (80%); 2 remaining." not in warning_parts[0].content
+        assert "Iterations: 9/10 requests used (90%); 1 remaining." in warning_text
+        assert "Iterations: 8/10 requests used (80%); 2 remaining." not in warning_text
 
     @pytest.mark.anyio
     async def test_context_warning_clears_after_history_shrinks(self):
@@ -232,11 +229,11 @@ class TestLimitWarnerProcessor:
         ctx = _make_ctx()
 
         warned_messages = await processor(ctx, messages)
-        assert len(_generated_warning_parts(warned_messages)) == 1
+        assert _generated_warning_text(warned_messages) is not None
 
-        trimmed_messages = [warned_messages[-1]]
+        trimmed_messages = [warned_messages[-2]]
         cleared_messages = await processor(ctx, trimmed_messages)
-        assert _generated_warning_parts(cleared_messages) == []
+        assert _generated_warning_text(cleared_messages) is None
 
     @pytest.mark.anyio
     async def test_iteration_and_total_token_warnings_persist_after_context_shrinks(self):
@@ -251,12 +248,11 @@ class TestLimitWarnerProcessor:
         ctx = _make_ctx(requests=8, input_tokens=55, output_tokens=25)
 
         warned_messages = await processor(ctx, messages)
-        trimmed_messages = [warned_messages[-1]]
+        trimmed_messages = [warned_messages[-2]]
         rewarned_messages = await processor(ctx, trimmed_messages)
-        warning_parts = _generated_warning_parts(rewarned_messages)
+        warning = _generated_warning_text(rewarned_messages)
 
-        assert len(warning_parts) == 1
-        warning = warning_parts[0].content
+        assert warning is not None
         assert "Iterations: 8/10 requests used (80%); 2 remaining." in warning
         assert "Total tokens: 80/100 used (80%); 20 remaining." in warning
         assert "Context window:" not in warning
@@ -278,7 +274,7 @@ class TestLimitWarnerProcessor:
 
         result = await processor(_make_ctx(), messages)
         assert calls == [3]
-        assert len(_generated_warning_parts(result)) == 1
+        assert _generated_warning_text(result) is not None
 
     @pytest.mark.anyio
     async def test_iteration_urgent_severity_above_critical_remaining(self):
@@ -290,7 +286,8 @@ class TestLimitWarnerProcessor:
         # 7/10 used → 3 remaining > 2 critical → URGENT
         ctx = _make_ctx(requests=7)
         result = await processor(ctx, _make_messages())
-        warning = _generated_warning_parts(result)[0].content
+        warning = _generated_warning_text(result)
+        assert warning is not None
         assert "URGENT" in warning
         assert "3 remaining" in warning
 
@@ -306,7 +303,8 @@ class TestLimitWarnerProcessor:
         # Only iterations enabled, context_window disabled
         ctx = _make_ctx(requests=8)
         result = await processor(ctx, _make_messages())
-        warning = _generated_warning_parts(result)[0].content
+        warning = _generated_warning_text(result)
+        assert warning is not None
         assert "Context window" not in warning
 
     @pytest.mark.anyio
@@ -319,7 +317,7 @@ class TestLimitWarnerProcessor:
 
     @pytest.mark.anyio
     async def test_last_message_not_model_request(self):
-        """Test processor handles history ending with ModelResponse."""
+        """Test warning is appended after ModelResponse as a new user turn."""
         processor = LimitWarnerProcessor(max_iterations=10)
         messages: list[ModelMessage] = [
             ModelRequest(parts=[UserPromptPart(content="Hi")]),
@@ -327,8 +325,11 @@ class TestLimitWarnerProcessor:
         ]
         ctx = _make_ctx(requests=8)
         result = await processor(ctx, messages)
-        # Warning can't be appended — last message is ModelResponse
-        assert result == messages
+        assert len(result) == 3
+        assert result[:2] == messages
+        warning = _generated_warning_text(result)
+        assert warning is not None
+        assert "Iterations: 8/10" in warning
 
     def test_factory_custom_token_counter(self):
         """Test factory forwards custom token_counter."""

@@ -32,7 +32,7 @@ agent = Agent(
 1. Removes any warning parts it generated on earlier turns
 2. Checks configured limits against the current `RunContext`
 3. Measures current context size from the cleaned message history
-4. Appends a generated `SystemPromptPart` to the trailing `ModelRequest`
+4. Appends a new trailing `ModelRequest` whose `UserPromptPart` carries the warning text (a separate user turn, not extra system text on the last message)
 
 The warning is ephemeral for context-window pressure: once compaction reduces the
 history size, the old context warning is removed and not re-injected.

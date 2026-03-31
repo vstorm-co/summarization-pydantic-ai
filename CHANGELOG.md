@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **`LimitWarnerProcessor` warning delivery** — warnings are injected as a trailing `UserPromptPart` in a new `ModelRequest` instead of appending a `SystemPromptPart` to the last turn, so models treat the limit notice like a distinct user message.
+
 ## [0.1.1] - 2026-03-28
 
 ### Fixed
