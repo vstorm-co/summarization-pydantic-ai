@@ -176,8 +176,8 @@ class SlidingWindowCapability(AbstractCapability[Any]):
 class LimitWarnerCapability(AbstractCapability[Any]):
     """Capability that warns the agent when run limits approach.
 
-    Injects warning ``SystemPromptPart`` into the conversation when
-    iteration, context window, or total token limits are near.
+    Injects a warning as a trailing user message when iteration, context
+    window, or total token limits are near.
 
     Example:
         ```python
