@@ -1,6 +1,6 @@
 [project]
 name = "summarization-pydantic-ai"
-version = "0.1.1"
+version = "0.1.2"
 description = "Automatic Conversation Summarization and History Management for Pydantic AI"
 readme = "README.md"
 license = "MIT"
@@ -21,7 +21,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "pydantic-ai-slim>=1.71.0",
+    "pydantic-ai-slim>=1.74.0",
 ]
 
 [project.optional-dependencies]
