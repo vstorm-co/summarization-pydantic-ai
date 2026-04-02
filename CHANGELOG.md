@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.2] - 2026-04-02
+## [0.1.3] - 2026-04-02
 
 ### Added
 
@@ -13,7 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **`LimitWarnerProcessor` warning delivery** — warnings are injected as a trailing `UserPromptPart` in a new `ModelRequest` instead of appending a `SystemPromptPart` to the last turn, so models treat the limit notice like a distinct user message.
+- **`LimitWarnerProcessor` warning delivery** — warnings are injected as a trailing `UserPromptPart` in a new `ModelRequest` instead of appending a `SystemPromptPart` to the last turn, so models treat the limit notice like a distinct user message ([#14](https://github.com/vstorm-co/summarization-pydantic-ai/pull/14), by [@Gby56](https://github.com/Gby56))
+
+## [0.1.2] - 2026-03-31
+
+### Changed
+
+- Bump minimum `pydantic-ai-slim` to `>=1.74.0` for compatibility with async `get_instructions` on toolsets
 
 ## [0.1.1] - 2026-03-28
 
