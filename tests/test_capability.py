@@ -96,6 +96,35 @@ class TestContextManagerCapability:
         assert cap._compact_requested is True
         assert cap._compact_focus == "preserve credentials"
 
+    def test_include_compact_tool_default_false(self):
+        cap = ContextManagerCapability()
+        assert cap.include_compact_tool is False
+        assert cap.get_toolset() is None
+
+    def test_include_compact_tool_true(self):
+        cap = ContextManagerCapability(include_compact_tool=True)
+        assert cap.include_compact_tool is True
+        toolset = cap.get_toolset()
+        assert toolset is not None
+        assert "compact_conversation" in toolset.tools
+
+    async def test_compact_conversation_tool_calls_request_compact(self):
+        cap = ContextManagerCapability(include_compact_tool=True)
+        toolset = cap.get_toolset()
+        tool_fn = toolset.tools["compact_conversation"].function
+        result = await tool_fn()
+        assert "Conversation compaction requested" in result
+        assert cap._compact_requested is True
+
+    async def test_compact_conversation_tool_with_focus(self):
+        cap = ContextManagerCapability(include_compact_tool=True)
+        toolset = cap.get_toolset()
+        tool_fn = toolset.tools["compact_conversation"].function
+        result = await tool_fn(focus="API design decisions")
+        assert "Focus: API design decisions" in result
+        assert cap._compact_requested is True
+        assert cap._compact_focus == "API design decisions"
+
     def test_usage_callback(self):
         calls: list[tuple[float, int, int]] = []
 

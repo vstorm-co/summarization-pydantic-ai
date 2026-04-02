@@ -63,9 +63,12 @@ def _generated_warning_text(messages: list[ModelMessage]) -> str | None:
         if not isinstance(msg, ModelRequest):
             continue
         for part in msg.parts:
-            if isinstance(part, UserPromptPart) and isinstance(part.content, str):
-                if _WARNING_MARKER in part.content:
-                    return part.content
+            if (
+                isinstance(part, UserPromptPart)
+                and isinstance(part.content, str)
+                and _WARNING_MARKER in part.content
+            ):
+                return part.content
             if isinstance(part, SystemPromptPart) and _WARNING_MARKER in part.content:
                 return part.content
     return None

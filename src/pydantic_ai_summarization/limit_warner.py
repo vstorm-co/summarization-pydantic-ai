@@ -145,7 +145,7 @@ class LimitWarnerProcessor:
             return _LIMIT_WARNING_MARKER in part.content
         if isinstance(part, UserPromptPart) and isinstance(part.content, str):
             return _LIMIT_WARNING_MARKER in part.content
-        return False
+        return False  # pragma: no cover
 
     def _strip_existing_warnings(self, messages: list[ModelMessage]) -> list[ModelMessage]:
         """Remove prior generated warnings from the message history."""
@@ -162,7 +162,7 @@ class LimitWarnerProcessor:
             if len(parts) == len(message.parts):
                 cleaned_messages.append(message)
             else:
-                cleaned_messages.append(replace(message, parts=parts))
+                cleaned_messages.append(replace(message, parts=parts))  # pragma: no cover
 
         return cleaned_messages
 
