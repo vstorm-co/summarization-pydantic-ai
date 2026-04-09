@@ -542,9 +542,7 @@ class TestKeepHead:
         )
         messages: list[ModelMessage] = [
             ModelRequest(parts=[UserPromptPart(content="Initial question")]),
-            ModelResponse(
-                parts=[ToolCallPart(tool_name="search", args={}, tool_call_id="call_1")]
-            ),
+            ModelResponse(parts=[ToolCallPart(tool_name="search", args={}, tool_call_id="call_1")]),
             # keep_head=2 would cut here — but call_1 (index 1) is before, return (index 2) after
             ModelRequest(
                 parts=[ToolReturnPart(tool_name="search", content="Result", tool_call_id="call_1")]
