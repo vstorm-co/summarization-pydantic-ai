@@ -54,6 +54,7 @@ class SlidingWindowProcessor:
     Attributes:
         trigger: Threshold(s) that trigger window trimming.
         keep: How many messages to keep after trimming.
+        keep_head: How many messages to keep from the start of the conversation.
         token_counter: Function to count tokens (only used for token-based triggers/keep).
         max_input_tokens: Maximum input tokens (required for fraction-based config).
 
@@ -62,10 +63,12 @@ class SlidingWindowProcessor:
         from pydantic_ai import Agent
         from pydantic_ai_summarization import SlidingWindowProcessor
 
-        # Keep last 50 messages, trim when reaching 100
+        # Keep last 50 messages, trim when reaching 100,
+        # always preserve the system prompt
         processor = SlidingWindowProcessor(
             trigger=("messages", 100),
             keep=("messages", 50),
+            keep_head=("messages", 1),
         )
 
         agent = Agent(
@@ -86,12 +89,24 @@ class SlidingWindowProcessor:
     """
 
     keep: ContextSize = ("messages", _DEFAULT_WINDOW_SIZE)
-    """How many messages to keep after trimming.
+    """How many messages to keep after trimming (from the tail).
 
     Examples:
         - ("messages", 50) - keep last 50 messages
         - ("tokens", 10000) - keep last 10k tokens worth
         - ("fraction", 0.3) - keep last 30% of max_input_tokens
+    """
+
+    keep_head: ContextSize | None = None
+    """How many messages to keep from the start of the conversation.
+
+    This is useful for preserving system prompts or initial instructions
+    that should always remain in context regardless of trimming.
+
+    Examples:
+        - ("messages", 1) - keep the first message (typically the system prompt)
+        - ("messages", 3) - keep the first 3 messages
+        - ("tokens", 5000) - keep head messages up to ~5000 tokens
     """
 
     token_counter: TokenCounter = field(default=count_tokens_approximately)
@@ -107,6 +122,12 @@ class SlidingWindowProcessor:
         self._trigger_conditions, self.keep = _validate_trig_keep(
             self.trigger, self.keep, self.max_input_tokens
         )
+        if self.keep_head is not None:
+            self.keep_head = _validate_ctx(self.keep_head, "keep_head")
+            if self.keep_head[0] == "fraction" and self.max_input_tokens is None:
+                raise ValueError(
+                    "max_input_tokens is required when using fraction-based keep_head."
+                )
 
     def _validate_context_size(self, context: ContextSize, parameter_name: str) -> ContextSize:
         """Validate context configuration tuples."""
@@ -142,6 +163,40 @@ class SlidingWindowProcessor:
         """Check if cutting at index would separate tool call/response pairs."""
         return _is_safe(messages, cutoff_index)
 
+    def _determine_head_count(self, messages: list[ModelMessage]) -> int:
+        """Determine how many messages to keep from the head of the conversation.
+
+        Returns 0 if keep_head is not configured.
+        Adjusts the count upward if needed to avoid splitting tool call/response pairs.
+        """
+        if self.keep_head is None:
+            return 0
+
+        kind, value = self.keep_head
+
+        if kind == "messages":
+            raw_count = min(int(value), len(messages))
+        elif kind == "tokens":
+            raw_count = self._find_head_token_count(messages, int(value))
+        elif kind == "fraction" and self.max_input_tokens:
+            target = int(self.max_input_tokens * value)
+            raw_count = self._find_head_token_count(messages, target)
+        else:
+            return 0
+
+        # Adjust upward to avoid splitting tool call/response pairs
+        while raw_count < len(messages) and not _is_safe(messages, raw_count):
+            raw_count += 1
+
+        return raw_count
+
+    def _find_head_token_count(self, messages: list[ModelMessage], target_tokens: int) -> int:
+        """Find how many messages from the head fit within the target token budget."""
+        for i in range(1, len(messages) + 1):
+            if cast(int, self.token_counter(messages[:i])) > target_tokens:
+                return max(0, i - 1)
+        return len(messages)
+
     async def __call__(self, messages: list[ModelMessage]) -> list[ModelMessage]:
         """Process messages and trim if needed.
 
@@ -163,6 +218,15 @@ class SlidingWindowProcessor:
         if cutoff_index <= 0:
             return messages
 
+        head_count = self._determine_head_count(messages)
+
+        if head_count > 0:
+            # Ensure cutoff doesn't overlap with head messages
+            effective_cutoff = max(cutoff_index, head_count)
+            if effective_cutoff >= len(messages):
+                return messages
+            return messages[:head_count] + messages[effective_cutoff:]
+
         # Simply discard old messages and keep recent ones
         return messages[cutoff_index:]
 
@@ -170,6 +234,7 @@ class SlidingWindowProcessor:
 def create_sliding_window_processor(
     trigger: ContextSize | list[ContextSize] | None = ("messages", _DEFAULT_TRIGGER_MESSAGES),
     keep: ContextSize = ("messages", _DEFAULT_WINDOW_SIZE),
+    keep_head: ContextSize | None = None,
     max_input_tokens: int | None = None,
     token_counter: TokenCounter | None = None,
 ) -> SlidingWindowProcessor:
@@ -185,7 +250,11 @@ def create_sliding_window_processor(
             - ("fraction", F) - trigger at F fraction of max_input_tokens
             - List of tuples to trigger on any condition
             Defaults to ("messages", 100).
-        keep: How many messages to keep after trimming. Defaults to ("messages", 50).
+        keep: How many messages to keep after trimming (from the tail).
+            Defaults to ("messages", 50).
+        keep_head: How many messages to keep from the start of the conversation.
+            Useful for preserving system prompts. Defaults to None (no head
+            preservation).
         max_input_tokens: Maximum input tokens (required for fraction-based triggers).
         token_counter: Custom token counting function. Defaults to approximate counter.
 
@@ -197,10 +266,11 @@ def create_sliding_window_processor(
         from pydantic_ai import Agent
         from pydantic_ai_summarization import create_sliding_window_processor
 
-        # Simple: keep last 30 messages when reaching 60
+        # Keep last 30 messages when reaching 60, preserve system prompt
         processor = create_sliding_window_processor(
             trigger=("messages", 60),
             keep=("messages", 30),
+            keep_head=("messages", 1),
         )
 
         # Token-based: keep ~50k tokens when reaching 100k
@@ -219,6 +289,9 @@ def create_sliding_window_processor(
         "trigger": trigger,
         "keep": keep,
     }
+
+    if keep_head is not None:
+        kwargs["keep_head"] = keep_head
 
     if max_input_tokens is not None:
         kwargs["max_input_tokens"] = max_input_tokens

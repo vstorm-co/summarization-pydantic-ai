@@ -141,6 +141,7 @@ class SlidingWindowCapability(AbstractCapability[Any]):
             capabilities=[SlidingWindowCapability(
                 trigger=("messages", 100),
                 keep=("messages", 50),
+                keep_head=("messages", 1),  # preserve system prompt
             )],
         )
         ```
@@ -148,6 +149,7 @@ class SlidingWindowCapability(AbstractCapability[Any]):
 
     trigger: ContextSize = ("messages", 100)
     keep: ContextSize = ("messages", 50)
+    keep_head: ContextSize | None = None
     token_counter: TokenCounter = field(default=count_tokens_approximately)
     _processor: SlidingWindowProcessor | None = field(default=None, init=False, repr=False)
 
@@ -159,6 +161,7 @@ class SlidingWindowCapability(AbstractCapability[Any]):
         self._processor = SlidingWindowProcessor(
             trigger=self.trigger,
             keep=self.keep,
+            keep_head=self.keep_head,
             token_counter=self.token_counter,
         )
 

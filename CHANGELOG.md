@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-04-09
+
+### Added
+
+- **`keep_head` parameter on `SlidingWindowProcessor`** — preserve N messages from the start of the conversation during sliding window trimming. Prevents loss of system prompts and initial instructions when the window slides forward. Supports all `ContextSize` formats: `("messages", N)`, `("tokens", N)`, `("fraction", F)`. Automatically adjusts the head boundary to avoid splitting tool call/response pairs. ([#17](https://github.com/vstorm-co/summarization-pydantic-ai/issues/17), reported by [@zlowred](https://github.com/zlowred))
+
+  ```python
+  # Keep system prompt when trimming
+  processor = SlidingWindowProcessor(
+      trigger=("messages", 100),
+      keep=("messages", 50),
+      keep_head=("messages", 1),
+  )
+  ```
+
+- **`keep_head` on `SlidingWindowCapability`** — same parameter exposed on the capability wrapper
+- **`keep_head` on `create_sliding_window_processor()`** — same parameter on the factory function
+
 ## [0.1.3] - 2026-04-02
 
 ### Added
@@ -211,6 +229,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Requires `pydantic-ai>=0.1.0`
 - Optional `tiktoken` support for accurate token counting
 
+[0.1.4]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.1.4
+[0.1.3]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.1.3
+[0.1.2]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.1.2
+[0.1.1]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.1.1
+[0.1.0]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.1.0
+[0.0.5]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.5
 [0.0.4]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.4
 [0.0.3]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.3
 [0.0.2]: https://github.com/vstorm-co/summarization-pydantic-ai/releases/tag/v0.0.2
