@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`renovate.json`** ([#19](https://github.com/vstorm-co/summarization-pydantic-ai/pull/19)) — Renovate config landed; first auto-PRs (#20, #21) already merged.
 - **CI: bump `docs.yml` Python to `3.14`** ([#20](https://github.com/vstorm-co/summarization-pydantic-ai/pull/20), Renovate auto-PR).
 - **CI: bump `actions/checkout` to `v6`** across `ci.yml`, `docs.yml`, `publish.yml` ([#21](https://github.com/vstorm-co/summarization-pydantic-ai/pull/21), Renovate auto-PR).
+- **CI: bump `astral-sh/setup-uv` to `v8`** across `ci.yml` (×3) and `publish.yml` — pulled in from Renovate's [Dependency Dashboard #22](https://github.com/vstorm-co/summarization-pydantic-ai/issues/22) (rate-limited there) and folded into this release.
+- **CI: bump `actions/setup-python` to `v6`** in `docs.yml` — same source as above.
 
 No source-code changes — pure CI / dependency-bot housekeeping. Library behaviour unchanged from 0.1.4.
 
