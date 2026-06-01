@@ -1,6 +1,7 @@
 """Tests for SummarizationProcessor."""
 
 import pytest
+from pydantic_ai import Agent
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -11,6 +12,8 @@ from pydantic_ai.messages import (
     ToolReturnPart,
     UserPromptPart,
 )
+from pydantic_ai.messages import ModelResponse as _MR
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 
 from pydantic_ai_summarization import (
     SummarizationProcessor,
@@ -473,3 +476,98 @@ class TestSummarizationProcessor:
         processor = SummarizationProcessor(model="openai:gpt-4.1")
         result = processor._validate_context_size(("messages", 10), "test")
         assert result == ("messages", 10)
+
+
+def _build_summarizable_messages(count: int = 12) -> list[ModelMessage]:
+    """Build a long message list that triggers summarization."""
+    messages: list[ModelMessage] = []
+    for i in range(count):
+        messages.append(ModelRequest(parts=[UserPromptPart(content=f"User message {i}")]))
+        messages.append(ModelResponse(parts=[TextPart(content=f"Assistant reply {i}")]))
+    return messages
+
+
+class TestSummarizationCallPath:
+    """Tests for the __call__ summarization path (focus + error handling)."""
+
+    @pytest.mark.anyio
+    async def test_call_summarizes_and_threads_focus(self):
+        """A provided focus is forwarded into the summarization prompt."""
+
+        captured_prompts: list[str] = []
+
+        def respond(messages: list[ModelMessage], info: AgentInfo) -> _MR:
+            last = messages[-1]
+            for part in last.parts:
+                content = getattr(part, "content", None)
+                if isinstance(content, str):
+                    captured_prompts.append(content)
+            return _MR(parts=[TextPart(content="SUMMARY")])
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(FunctionModel(respond))
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages, focus="billing logic")
+
+        # History was replaced by a summary message plus the preserved tail.
+        assert len(result) < len(messages)
+        assert isinstance(result[0], ModelRequest)
+        assert "billing logic" in captured_prompts[0]
+
+    @pytest.mark.anyio
+    async def test_call_summarizes_without_focus(self):
+        """Without focus the prompt contains no focus block."""
+
+        captured_prompts: list[str] = []
+
+        def respond(messages: list[ModelMessage], info: AgentInfo) -> _MR:
+            last = messages[-1]
+            for part in last.parts:
+                content = getattr(part, "content", None)
+                if isinstance(content, str):
+                    captured_prompts.append(content)
+            return _MR(parts=[TextPart(content="SUMMARY")])
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(FunctionModel(respond))
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages)
+
+        assert len(result) < len(messages)
+        assert "<focus>" not in captured_prompts[0]
+
+    @pytest.mark.anyio
+    async def test_call_keeps_history_on_summary_failure(self):
+        """If summary generation raises, the original history is returned unchanged."""
+
+        def boom(messages: list[ModelMessage], info: AgentInfo) -> _MR:
+            raise RuntimeError("secret connection string leaked")
+
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(FunctionModel(boom))
+
+        messages = _build_summarizable_messages()
+        result = await processor(messages)
+
+        # Context is preserved; no error text injected into the history.
+        assert result == messages
+        for msg in result:
+            for part in msg.parts:
+                content = getattr(part, "content", "")
+                if isinstance(content, str):
+                    assert "secret connection string" not in content
+                    assert "Error generating summary" not in content

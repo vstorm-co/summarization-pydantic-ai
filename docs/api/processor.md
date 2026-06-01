@@ -10,3 +10,11 @@
         - count_tokens_approximately
         - format_messages_for_summary
         - DEFAULT_SUMMARY_PROMPT
+        - DEFAULT_CONTINUATION_PROMPT
+
+## Async Token Counting
+
+::: pydantic_ai_summarization._cutoff.async_count_tokens
+    options:
+      show_root_heading: true
+      show_source: true

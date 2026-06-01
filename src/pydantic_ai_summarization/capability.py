@@ -1,7 +1,7 @@
 """Capabilities for pydantic-ai agents.
 
 Wraps summarization processors and context management as pydantic-ai
-``AbstractCapability`` instances, removing the need for ``pydantic-ai-middleware``.
+`AbstractCapability` instances, removing the need for `pydantic-ai-middleware`.
 
 Example:
     ```python
@@ -24,6 +24,7 @@ from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
 from pydantic_ai.messages import ModelMessage, ToolCallPart
 from pydantic_ai.tools import ToolDefinition
+from pydantic_ai.toolsets import FunctionToolset
 
 from pydantic_ai_summarization._cutoff import async_count_tokens
 from pydantic_ai_summarization.limit_warner import LimitWarnerProcessor
@@ -78,7 +79,7 @@ def _truncate_tool_output(text: str, head_lines: int, tail_lines: int) -> str:
 class SummarizationCapability(AbstractCapability[Any]):
     """Capability that summarizes conversation history when thresholds are reached.
 
-    Wraps ``SummarizationProcessor`` as a pydantic-ai capability.
+    Wraps `SummarizationProcessor` as a pydantic-ai capability.
 
     Example:
         ```python
@@ -236,9 +237,9 @@ class ContextManagerCapability(AbstractCapability[Any]):
     """Full context management capability with token tracking, auto-compression,
     and tool output truncation.
 
-    Replaces ``ContextManagerMiddleware`` + ``pydantic-ai-middleware`` with a native
-    pydantic-ai capability. Uses ``before_model_request`` for history processing
-    and ``after_tool_execute`` for tool output truncation.
+    Replaces `ContextManagerMiddleware` + `pydantic-ai-middleware` with a native
+    pydantic-ai capability. Uses `before_model_request` for history processing
+    and `after_tool_execute` for tool output truncation.
 
     Example:
         ```python
@@ -267,7 +268,7 @@ class ContextManagerCapability(AbstractCapability[Any]):
     on_before_compress: BeforeCompressCallback | None = None
     on_after_compress: AfterCompressCallback | None = None
     include_compact_tool: bool = False
-    """When True, adds a ``compact_conversation`` tool so the agent can trigger compression."""
+    """When True, adds a `compact_conversation` tool so the agent can trigger compression."""
 
     _compact_requested: bool = field(default=False, init=False, repr=False)
     _compact_focus: str | None = field(default=None, init=False, repr=False)
@@ -298,11 +299,9 @@ class ContextManagerCapability(AbstractCapability[Any]):
         )
 
     def get_toolset(self) -> Any:
-        """Return a toolset with the ``compact_conversation`` tool, or None."""
+        """Return a toolset with the `compact_conversation` tool, or None."""
         if not self.include_compact_tool:
             return None
-
-        from pydantic_ai.toolsets import FunctionToolset
 
         toolset: FunctionToolset[Any] = FunctionToolset(id="context-compact")
         cap_ref = self  # capture for closure
@@ -366,7 +365,7 @@ class ContextManagerCapability(AbstractCapability[Any]):
     async def compact(
         self,
         messages: list[ModelMessage],
-        _focus: str | None = None,
+        focus: str | None = None,
     ) -> list[ModelMessage]:
         """Directly compact messages. Callable outside agent.run().
 
@@ -378,7 +377,7 @@ class ContextManagerCapability(AbstractCapability[Any]):
             Compressed message list.
         """
         assert self._summarization_processor is not None
-        compressed = await self._summarization_processor(messages)
+        compressed = await self._summarization_processor(messages, focus)
         self._compression_count += 1
         return compressed
 
@@ -400,13 +399,14 @@ class ContextManagerCapability(AbstractCapability[Any]):
         should_compress = pct >= self.compress_threshold or self._compact_requested
         if should_compress:  # pragma: no cover — compression requires LLM call
             self._compact_requested = False
+            focus = self._compact_focus
             self._compact_focus = None
 
             if self.on_before_compress is not None:
                 self.on_before_compress(messages, 0)
 
             assert self._summarization_processor is not None
-            messages = await self._summarization_processor(messages)
+            messages = await self._summarization_processor(messages, focus)
             self._compression_count += 1
 
             if self.on_after_compress is not None:

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`LimitWarnerProcessor`** — standalone history processor that injects warning `SystemPromptPart`s as request, context-window, or total-token limits approach ([#10](https://github.com/vstorm-co/summarization-pydantic-ai/pull/10), by [@Gby56](https://github.com/Gby56))
+- **`LimitWarnerProcessor`** — standalone history processor that appends a new user turn (a `ModelRequest` carrying a `UserPromptPart`) as request, context-window, or total-token limits approach ([#10](https://github.com/vstorm-co/summarization-pydantic-ai/pull/10), by [@Gby56](https://github.com/Gby56))
 - **`create_limit_warner_processor()`** factory function
 - **`WarningOn`** type alias for selecting warning categories
 

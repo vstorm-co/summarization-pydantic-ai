@@ -58,13 +58,13 @@ agent = Agent(
 
 | Option | Type | LLM Cost | Best For |
 |--------|------|----------|----------|
-| `ContextManagerCapability` | Capability | Per compression | Production apps (recommended) |
-| `SummarizationCapability` | Capability | High | Quality-focused apps |
-| `SlidingWindowCapability` | Capability | Zero | Speed/cost-focused apps |
-| `LimitWarnerCapability` | Capability | Zero | Warning before limits hit |
-| `SummarizationProcessor` | Processor | High | Standalone use |
-| `SlidingWindowProcessor` | Processor | Zero | Standalone use |
-| `LimitWarnerProcessor` | Processor | Zero | Standalone use |
+| [`ContextManagerCapability`][pydantic_ai_summarization.capability.ContextManagerCapability] | Capability | Per compression | Production apps (recommended) |
+| [`SummarizationCapability`][pydantic_ai_summarization.capability.SummarizationCapability] | Capability | High | Quality-focused apps |
+| [`SlidingWindowCapability`][pydantic_ai_summarization.capability.SlidingWindowCapability] | Capability | Zero | Speed/cost-focused apps |
+| [`LimitWarnerCapability`][pydantic_ai_summarization.capability.LimitWarnerCapability] | Capability | Zero | Warning before limits hit |
+| [`SummarizationProcessor`][pydantic_ai_summarization.processor.SummarizationProcessor] | Processor | High | Standalone use |
+| [`SlidingWindowProcessor`][pydantic_ai_summarization.sliding_window.SlidingWindowProcessor] | Processor | Zero | Standalone use |
+| [`LimitWarnerProcessor`][pydantic_ai_summarization.limit_warner.LimitWarnerProcessor] | Processor | Zero | Standalone use |
 
 ## Alternative: Processor API
 

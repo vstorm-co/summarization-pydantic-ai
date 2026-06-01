@@ -99,7 +99,7 @@ def should_trigger(
             return True
         if kind == "tokens" and total_tokens >= value:
             return True
-        if kind == "fraction" and max_input_tokens:
+        if kind == "fraction" and max_input_tokens is not None:
             threshold = int(max_input_tokens * value)
             if total_tokens >= threshold:
                 return True
@@ -131,7 +131,7 @@ def determine_cutoff_index(
         return find_safe_cutoff(messages, int(value))
     elif kind == "tokens":
         return find_token_based_cutoff(messages, int(value), token_counter)
-    elif kind == "fraction" and max_input_tokens:
+    elif kind == "fraction" and max_input_tokens is not None:
         target_tokens = int(max_input_tokens * value)
         return find_token_based_cutoff(messages, target_tokens, token_counter)
 
@@ -301,6 +301,11 @@ def validate_triggers_and_keep(
         raise ValueError(
             "max_input_tokens is required when using fraction-based trigger or keep values."
         )
+    if uses_fraction and max_input_tokens is not None and max_input_tokens <= 0:
+        raise ValueError(
+            "max_input_tokens must be greater than 0 when using fraction-based "
+            f"trigger or keep values, got {max_input_tokens}."
+        )
 
     return trigger_conditions, validated_keep
 
@@ -325,7 +330,7 @@ async def async_determine_cutoff_index(
         return find_safe_cutoff(messages, int(value))
     elif kind == "tokens":
         return await async_find_token_based_cutoff(messages, int(value), token_counter)
-    elif kind == "fraction" and max_input_tokens:
+    elif kind == "fraction" and max_input_tokens is not None:
         target_tokens = int(max_input_tokens * value)
         return await async_find_token_based_cutoff(messages, target_tokens, token_counter)
 

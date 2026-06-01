@@ -139,6 +139,11 @@ class TestShouldTrigger:
             is False
         )
 
+    def test_fraction_trigger_zero_max_tokens_still_fires(self):
+        # max_input_tokens=0 must not be treated as falsy: threshold is 0,
+        # so any token count meets the fraction trigger.
+        assert should_trigger([("fraction", 0.5)], _make_messages(2), 1, max_input_tokens=0) is True
+
     def test_multiple_triggers_first_met(self):
         msgs = _make_messages(10)
         assert should_trigger([("messages", 10), ("tokens", 999999)], msgs, 0) is True
@@ -271,6 +276,20 @@ class TestDetermineCutoffIndex:
         cutoff = determine_cutoff_index(msgs, ("messages", 10), count_tokens_approximately)
         assert cutoff == 0
 
+    def test_fraction_based_zero_max_tokens(self):
+        # max_input_tokens=0 must not be treated as falsy: the fraction branch is
+        # taken (target is 0 tokens, so almost everything is cut) rather than
+        # silently falling back to the default_keep of 20.
+        msgs = _make_messages(20)
+        cutoff = determine_cutoff_index(
+            msgs,
+            ("fraction", 0.1),
+            count_tokens_approximately,
+            max_input_tokens=0,
+            default_keep=20,
+        )
+        assert cutoff >= len(msgs) - 1
+
 
 class TestValidateTriggersAndKeep:
     """Tests for validate_triggers_and_keep."""
@@ -303,6 +322,14 @@ class TestValidateTriggersAndKeep:
             ("fraction", 0.8), ("messages", 10), max_input_tokens=200000
         )
         assert triggers == [("fraction", 0.8)]
+
+    def test_fraction_trigger_rejects_zero_max_input_tokens(self):
+        with pytest.raises(ValueError, match="must be greater than 0"):
+            validate_triggers_and_keep(("fraction", 0.8), ("messages", 10), max_input_tokens=0)
+
+    def test_fraction_keep_rejects_negative_max_input_tokens(self):
+        with pytest.raises(ValueError, match="must be greater than 0"):
+            validate_triggers_and_keep(("tokens", 100), ("fraction", 0.5), max_input_tokens=-1)
 
     def test_valid_trigger_zero(self):
         triggers, keep = validate_triggers_and_keep(("tokens", 0), ("messages", 10), None)
@@ -383,6 +410,17 @@ class TestAsyncDetermineCutoffIndex:
             max_input_tokens=100,
         )
         assert cutoff > 0
+
+    async def test_fraction_based_keep_zero_max_tokens(self):
+        """max_input_tokens=0 must not be treated as falsy in the async variant."""
+        msgs = _make_messages(20)
+        cutoff = await async_determine_cutoff_index(
+            msgs,
+            ("fraction", 0.1),
+            count_tokens_approximately,
+            max_input_tokens=0,
+        )
+        assert cutoff >= len(msgs) - 1
 
     async def test_few_messages_message_keep(self):
         """When messages < keep, cutoff is 0."""

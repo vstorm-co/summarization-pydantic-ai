@@ -152,6 +152,7 @@ nav:
     - examples/index.md
     - Basic Usage: examples/basic-usage.md
     - Advanced: examples/advanced.md
+    - Context Manager: examples/context-manager.md
   - API Reference:
     - api/index.md
     - Capabilities: api/capability.md

@@ -60,13 +60,13 @@ summarization-pydantic-ai is built on Pydantic AI. Their documentation is an exc
 
 ### When should I use SummarizationProcessor vs SlidingWindowProcessor?
 
-**Use SummarizationProcessor** when:
+**Use [`SummarizationProcessor`][pydantic_ai_summarization.processor.SummarizationProcessor]** when:
 
 - Context quality matters (coding assistants, complex conversations)
 - You need to preserve key decisions and information
 - LLM cost is acceptable
 
-**Use SlidingWindowProcessor** when:
+**Use [`SlidingWindowProcessor`][pydantic_ai_summarization.sliding_window.SlidingWindowProcessor]** when:
 
 - Speed and cost are priorities
 - Recent messages are most important

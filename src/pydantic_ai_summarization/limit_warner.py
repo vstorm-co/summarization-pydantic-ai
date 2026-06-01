@@ -37,8 +37,8 @@ class _TriggeredWarning:
 class LimitWarnerProcessor:
     """History processor that warns as configured run limits approach.
 
-    This processor appends a new trailing ``ModelRequest`` containing the
-    warning as a ``UserPromptPart`` so the next model turn treats it like a
+    This processor appends a new trailing `ModelRequest` containing the
+    warning as a `UserPromptPart` so the next model turn treats it like a
     distinct user message (rather than extra system text merged into the last
     turn, which models often deprioritize).
 
@@ -316,7 +316,7 @@ def create_limit_warner_processor(
         token_counter: Custom token counter for context-window measurement.
 
     Returns:
-        Configured ``LimitWarnerProcessor`` instance.
+        Configured `LimitWarnerProcessor` instance.
     """
     kwargs: dict[str, Any] = {
         "max_iterations": max_iterations,

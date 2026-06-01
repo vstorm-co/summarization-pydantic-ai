@@ -13,10 +13,10 @@ Native pydantic-ai [capabilities](https://ai.pydantic.dev/capabilities/) — plu
 
 | Capability | Description | Cost |
 |------------|-------------|------|
-| [ContextManagerCapability](capability.md) | Full context management + tool truncation | Per compression |
-| [SummarizationCapability](capability.md) | LLM-based history compression | High |
-| [SlidingWindowCapability](capability.md) | Zero-cost message trimming | Zero |
-| [LimitWarnerCapability](capability.md) | Warning injection before limits | Zero |
+| [`ContextManagerCapability`][pydantic_ai_summarization.capability.ContextManagerCapability] | Full context management + tool truncation | Per compression |
+| [`SummarizationCapability`][pydantic_ai_summarization.capability.SummarizationCapability] | LLM-based history compression | High |
+| [`SlidingWindowCapability`][pydantic_ai_summarization.capability.SlidingWindowCapability] | Zero-cost message trimming | Zero |
+| [`LimitWarnerCapability`][pydantic_ai_summarization.capability.LimitWarnerCapability] | Warning injection before limits | Zero |
 
 ### Standalone Processors
 
@@ -24,9 +24,9 @@ Lower-level API for use with `history_processors=`:
 
 | Processor | Description | Cost |
 |-----------|-------------|------|
-| [SummarizationProcessor](processor.md) | Uses LLM to summarize old messages | High |
-| [SlidingWindowProcessor](sliding-window.md) | Simply discards old messages | Zero |
-| [LimitWarnerProcessor](limit-warner.md) | Injects finish-soon warnings | Zero |
+| [`SummarizationProcessor`][pydantic_ai_summarization.processor.SummarizationProcessor] | Uses LLM to summarize old messages | High |
+| [`SlidingWindowProcessor`][pydantic_ai_summarization.sliding_window.SlidingWindowProcessor] | Simply discards old messages | Zero |
+| [`LimitWarnerProcessor`][pydantic_ai_summarization.limit_warner.LimitWarnerProcessor] | Injects finish-soon warnings | Zero |
 
 The compaction processors:
 

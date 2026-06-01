@@ -51,13 +51,39 @@ Use your own token counting logic with either processor:
 
 ## Implementing a Custom TokenCounter
 
-The [`TokenCounter`][pydantic_ai_summarization.types.TokenCounter] type is defined as:
+The [`TokenCounter`][pydantic_ai_summarization.types.TokenCounter] type is a union of a
+**synchronous** or **asynchronous** callable:
 
 ```python
-TokenCounter = Callable[[Sequence[ModelMessage]], int]
+TokenCounter = (
+    Callable[[Sequence[ModelMessage]], int]
+    | Callable[[Sequence[ModelMessage]], Awaitable[int]]
+)
 ```
 
-Any callable that accepts a sequence of `ModelMessage` objects and returns an integer token count will work. Below is a complete example using [tiktoken](https://github.com/openai/tiktoken) that properly inspects each message part for accurate counting:
+Any callable that accepts a sequence of `ModelMessage` objects and returns an integer token
+count (or an awaitable resolving to one) will work. When an async counter is supplied, the
+processors and capabilities `await` it automatically — internally they call
+[`async_count_tokens`][pydantic_ai_summarization.async_count_tokens], which awaits async
+counters and calls sync ones directly. This means you can back token counting with a real
+model call (for example pydantic-ai's `model.count_tokens()`):
+
+```python
+from collections.abc import Sequence
+
+from pydantic_ai import models
+from pydantic_ai.messages import ModelMessage
+
+
+async def model_token_counter(messages: Sequence[ModelMessage]) -> int:
+    """Async counter backed by the model's own tokenizer."""
+    model = models.infer_model("openai:gpt-4.1")
+    usage = await model.count_tokens(list(messages), None, None)
+    return usage.request_tokens or 0
+```
+
+Below is a complete **synchronous** example using [tiktoken](https://github.com/openai/tiktoken)
+that properly inspects each message part for accurate counting:
 
 ```python
 from collections.abc import Sequence

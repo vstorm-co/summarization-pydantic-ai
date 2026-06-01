@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, cast
@@ -43,6 +44,8 @@ from pydantic_ai_summarization.types import ContextSize, ModelType, TokenCounter
 
 if TYPE_CHECKING:
     pass
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_SUMMARY_PROMPT = (
@@ -262,7 +265,7 @@ class SummarizationProcessor:
     model: ModelType
     """Model to use for generating summaries.
 
-    Accepts a string model name (e.g., ``"openai:gpt-4.1"``), a pydantic-ai
+    Accepts a string model name (e.g., `"openai:gpt-4.1"`), a pydantic-ai
     :class:`~pydantic_ai.models.Model` instance, or a
     :data:`~pydantic_ai.models.KnownModelName` literal.
     """
@@ -352,7 +355,9 @@ class SummarizationProcessor:
         return self._summarization_agent
 
     async def _create_summary(
-        self, messages_to_summarize: list[ModelMessage]
+        self,
+        messages_to_summarize: list[ModelMessage],
+        focus: str | None = None,
     ) -> str:  # pragma: no cover
         """Generate summary for the given messages."""
         if not messages_to_summarize:
@@ -365,21 +370,27 @@ class SummarizationProcessor:
             formatted = formatted[-(self.trim_tokens_to_summarize * 4) :]
 
         prompt = self.summary_prompt.format(messages=formatted)
+        if focus:
+            prompt = (
+                f"{prompt}\n\n<focus>\n"
+                f"Prioritize information related to this focus topic: {focus}\n"
+                "</focus>"
+            )
 
-        try:
-            agent = self._get_summarization_agent()
-            result = await agent.run(prompt)
-            return result.output.strip()
-        except Exception as e:
-            return f"Error generating summary: {e!s}"
+        agent = self._get_summarization_agent()
+        result = await agent.run(prompt)
+        return result.output.strip()
 
-    async def __call__(self, messages: list[ModelMessage]) -> list[ModelMessage]:
+    async def __call__(
+        self, messages: list[ModelMessage], focus: str | None = None
+    ) -> list[ModelMessage]:
         """Process messages and summarize if needed.
 
         This is the main entry point called by pydantic-ai's history processor mechanism.
 
         Args:
             messages: Current message history.
+            focus: Optional focus topic to prioritize when generating the summary.
 
         Returns:
             Processed message history, potentially with older messages summarized.
@@ -394,22 +405,24 @@ class SummarizationProcessor:
         if cutoff_index <= 0:
             return messages
 
-        # The following code path requires an LLM call, so is covered by integration tests
-        system_parts = _extract_system_prompts(messages)  # pragma: no cover
-        messages_to_summarize = messages[:cutoff_index]  # pragma: no cover
-        preserved_messages = messages[cutoff_index:]  # pragma: no cover
+        system_parts = _extract_system_prompts(messages)
+        messages_to_summarize = messages[:cutoff_index]
+        preserved_messages = messages[cutoff_index:]
 
-        summary = await self._create_summary(messages_to_summarize)  # pragma: no cover
+        try:
+            summary = await self._create_summary(messages_to_summarize, focus)
+        except Exception:
+            # If summary generation fails, skip summarization and keep the original
+            # history intact rather than discarding context or injecting error text
+            # (which could leak sensitive details) into the model-visible prompt.
+            logger.exception("Summarization failed; keeping original message history.")
+            return messages
 
         # Create summary message with preserved system prompts
-        summary_part = SystemPromptPart(  # pragma: no cover
-            content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}"
-        )
-        summary_message = ModelRequest(  # pragma: no cover
-            parts=[*system_parts, summary_part]
-        )
+        summary_part = SystemPromptPart(content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}")
+        summary_message = ModelRequest(parts=[*system_parts, summary_part])
 
-        return [summary_message, *preserved_messages]  # pragma: no cover
+        return [summary_message, *preserved_messages]
 
 
 def create_summarization_processor(

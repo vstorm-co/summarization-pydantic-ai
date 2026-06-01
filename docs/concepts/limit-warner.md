@@ -55,6 +55,29 @@ processor = LimitWarnerProcessor(
 )
 ```
 
+### `warning_threshold`
+
+Default `0.7`. The fraction of a configured limit at which warnings begin. For each enabled
+metric the processor computes `usage = current / limit`; no warning is emitted until
+`usage >= warning_threshold`. For example, with `max_iterations=40` and the default `0.7`,
+warnings start once 28 of 40 requests have been used. Must satisfy `0 < x <= 1`.
+
+### `critical_remaining_iterations`
+
+Default `3`. Warnings carry one of two severities, `URGENT` or `CRITICAL`. A warning starts
+as `URGENT` and escalates to `CRITICAL` when the situation is dire:
+
+- **Iterations** — escalates to `CRITICAL` once the remaining request count
+  (`max_iterations - requests_used`) is `<= critical_remaining_iterations`.
+- **Context window** and **total tokens** — escalate to `CRITICAL` only once usage reaches
+  or exceeds the limit (`usage >= 1`).
+
+When multiple warnings are active, the combined message is `URGENT` only if *every* active
+warning is `URGENT`; otherwise it is `CRITICAL`. The severity also changes the guidance text:
+`URGENT` asks the agent to "complete the current task efficiently", while `CRITICAL` asks it
+to "complete the current task immediately". `critical_remaining_iterations` must be
+non-negative.
+
 ## Ordering with Other Processors
 
 Processor order matters:

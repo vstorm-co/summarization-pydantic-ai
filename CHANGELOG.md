@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.6] - 2026-05-24
+
+### Changed
+
+- **Docstring and import hygiene (internal; no behavior change).** Converted reStructuredText-style double-backtick inline code in docstrings and comments to single-backtick Markdown (18 occurrences), so it renders correctly under the mkdocstrings Markdown handler. Hoisted 15 function-local imports to module top where safe; intentionally-lazy, conditional, optional-dependency (`try`/`except ImportError`), and circular-import-avoidance imports were left in place.
+
+### Fixed
+
+- **Manual compaction focus topic is now honored** — `request_compact(focus=...)` and the `compact_conversation` tool's focus topic are forwarded through `ContextManagerCapability` into `SummarizationProcessor`, which appends a focus block to the summary prompt. Previously the focus was silently discarded. `SummarizationProcessor.__call__` and `compact()` now accept an optional `focus` argument.
+- **`max_input_tokens=0` no longer silently disables fraction-based triggers** — fraction trigger and keep checks now use explicit `is not None` checks instead of truthiness, and `validate_triggers_and_keep` rejects `max_input_tokens <= 0` when a fraction-based trigger or keep value is used.
+- **Summarization errors no longer overwrite or leak into conversation history** — when summary generation fails, the original message history is now returned unchanged and the error is logged, instead of replacing the pre-cutoff history with raw exception text (which could leak sensitive details into the model prompt).
+
+### Documentation
+
+- **Documentation accuracy pass and new example.** Created the missing **Context Manager** example page (token tracking via `on_usage_update`, tool-output truncation, the `compact_conversation` tool, and `compact()`/`request_compact()`), removed the nonexistent `hybrid` install extra, and documented the previously-omitted `ModelType`, `DEFAULT_CONTINUATION_PROMPT`, and `async_count_tokens` exports. Corrected the `TokenCounter` type (a sync-or-async union), the changelog note about `LimitWarnerProcessor` (it appends a `UserPromptPart`, not `SystemPromptPart`s), added a full `ContextManagerCapability` parameter table with verified defaults, and documented `keep_head` and the `warning_threshold`/`critical_remaining_iterations` knobs. `mkdocs build --strict` passes with zero warnings.
+
 ## [0.1.5] - 2026-05-24
 
 ### Infrastructure

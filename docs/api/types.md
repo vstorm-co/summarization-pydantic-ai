@@ -11,3 +11,4 @@
         - ContextTokens
         - ContextMessages
         - WarningOn
+        - ModelType

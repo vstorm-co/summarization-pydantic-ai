@@ -78,6 +78,34 @@ keep=("tokens", 10000)
 keep=("fraction", 0.2)
 ```
 
+!!! warning "`max_input_tokens` is also required for fraction-based `keep`"
+    The `max_input_tokens` requirement is not limited to fraction *triggers*. Using
+    `keep=("fraction", ...)` also requires `max_input_tokens` — validation rejects any
+    fraction-based trigger **or** keep value when `max_input_tokens` is unset (and it must
+    be greater than 0).
+
+## Preserving the Head (Sliding Window)
+
+[`SlidingWindowProcessor`][pydantic_ai_summarization.sliding_window.SlidingWindowProcessor]
+(and [`SlidingWindowCapability`][pydantic_ai_summarization.capability.SlidingWindowCapability])
+support an optional `keep_head` parameter alongside `keep`. While `keep` retains messages
+from the **tail**, `keep_head` retains messages from the **start** of the conversation —
+useful for preserving a system prompt or initial instructions that should always survive
+trimming:
+
+```python
+from pydantic_ai_summarization import SlidingWindowProcessor
+
+processor = SlidingWindowProcessor(
+    trigger=("messages", 100),
+    keep=("messages", 50),       # keep last 50 messages
+    keep_head=("messages", 1),   # always preserve the first message (system prompt)
+)
+```
+
+`keep_head` accepts the same `("messages", n)`, `("tokens", n)`, or `("fraction", f)` forms.
+A fraction-based `keep_head` likewise requires `max_input_tokens`.
+
 ## Common Configurations
 
 ### Conservative (Long Conversations)

@@ -15,7 +15,7 @@ TokenCounter = (
 """Function type that counts tokens in a sequence of messages.
 
 Supports both synchronous and asynchronous callables. When an async
-callable is provided, the middleware will ``await`` the result.
+callable is provided, the middleware will `await` the result.
 
 Example:
     ```python
@@ -78,13 +78,13 @@ Examples:
 """
 
 WarningOn = Literal["iterations", "context_window", "total_tokens"]
-"""Warning categories supported by ``LimitWarnerProcessor``.
+"""Warning categories supported by `LimitWarnerProcessor`.
 
 Can be:
-- ``"iterations"`` - warn as request count approaches the configured maximum
-- ``"context_window"`` - warn as the current message history approaches the
+- `"iterations"` - warn as request count approaches the configured maximum
+- `"context_window"` - warn as the current message history approaches the
   configured context budget
-- ``"total_tokens"`` - warn as cumulative run token usage approaches the configured maximum
+- `"total_tokens"` - warn as cumulative run token usage approaches the configured maximum
 
 Example:
     ```python
