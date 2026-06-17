@@ -113,11 +113,17 @@ Two callbacks let you observe or augment compression:
 
 ```python
 def before_compress(messages: list, cutoff_index: int) -> None:
-    print(f"About to compress {len(messages)} messages")
+    # cutoff_index is the real index the processor chose — not a placeholder.
+    print(f"About to compress {cutoff_index}/{len(messages)} messages")
 
 
-def after_compress(messages: list) -> str | None:
-    # Returning a string re-injects it into the first request as a SystemPromptPart
+def after_compress(messages: list, summarized: bool, summary: str | None) -> str | None:
+    # summarized=False covers both "LLM failed" cases — previously indistinguishable
+    # from a successful compression.
+    if not summarized:
+        print("Compression attempted but no summary was produced")
+        return None
+    # Returning a string re-injects it into the first request as a SystemPromptPart.
     return "Reminder: keep responses concise after compaction."
 
 
@@ -128,9 +134,11 @@ cap = ContextManagerCapability(
 )
 ```
 
-`on_before_compress` is called with the pre-compression messages and a cutoff index just
-before summarization runs. `on_after_compress` is called with the compressed messages; if it
-returns a string, that text is appended to the first request as a `SystemPromptPart`.
+`on_before_compress` fires between the processor's plan and execute steps, with the actual
+cutoff index — so it really does run *before* the summary LLM. `on_after_compress` fires
+with a `summarized` flag and the generated `summary` text (or `None`); return a string to
+have it appended to the first request as a `SystemPromptPart` (re-injection happens only
+when `summarized=True`).
 
 ## Next Steps
 

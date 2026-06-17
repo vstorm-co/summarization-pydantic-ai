@@ -229,20 +229,36 @@ class TestContextManagerCompact:
 
     @pytest.mark.anyio
     async def test_compact_forwards_focus_to_processor(self):
-        """compact() threads the focus topic through to the summarization processor."""
+        """compact() threads the focus topic through to the summarization processor.
+
+        Uses the two-phase stub to verify focus is passed to execute_plan and
+        that compression_count only increments when summarized=True (issue #30).
+        """
         cap = ContextManagerCapability(max_tokens=100_000)
-        captured: dict[str, Any] = {}
-
-        async def fake_processor(messages: Any, focus: str | None = None) -> Any:
-            captured["focus"] = focus
-            return messages
-
-        cap._summarization_processor = fake_processor  # type: ignore[assignment]
+        stub = _ProcessorStub()
+        cap._summarization_processor = stub  # type: ignore[assignment]
 
         messages = [ModelRequest(parts=[UserPromptPart(content="Hello")])]
         await cap.compact(messages, focus="payment flow")
-        assert captured["focus"] == "payment flow"
+
+        assert stub.execute_call_kwargs["focus"] == "payment flow"
+        # force=True is what makes the compact tool always compress (issue #30 point #3).
+        assert stub.plan_call_kwargs["force"] is True
         assert cap.compression_count == 1
+
+    @pytest.mark.anyio
+    async def test_compact_no_increment_when_not_summarized(self):
+        """compact() does not increment compression_count when summary fails."""
+        cap = ContextManagerCapability(max_tokens=100_000)
+        stub = _ProcessorStub(summarized=False)
+        cap._summarization_processor = stub  # type: ignore[assignment]
+
+        messages = [ModelRequest(parts=[UserPromptPart(content="Hello")])]
+        result = await cap.compact(messages)
+
+        assert cap.compression_count == 0
+        # When not summarized, the input messages are returned unchanged.
+        assert result == messages
 
     @pytest.mark.anyio
     async def test_usage_callback_fires(self):
@@ -267,6 +283,218 @@ class TestContextManagerCompact:
         """Explicit max_tokens is used."""
         cap = ContextManagerCapability(max_tokens=50_000)
         assert cap._resolved_max_tokens == 50_000
+
+
+class _ProcessorStub:
+    """Minimal stand-in for SummarizationProcessor that records calls.
+
+    Used to test ContextManagerCapability's two-phase orchestration without
+    requiring a real summary LLM. Always returns a plan from plan_compression
+    (so the capability proceeds into execute_plan and fires both hooks); the
+    `summarized` flag on execute_plan's return value controls whether the
+    outcome is success or failure.
+    """
+
+    def __init__(self, *, summarized: bool = True, cutoff_index: int = 3) -> None:
+        self._summarized = summarized
+        self._cutoff_index = cutoff_index
+        self.plan_call_kwargs: dict[str, Any] = {}
+        self.execute_call_kwargs: dict[str, Any] = {}
+
+    async def plan_compression(self, messages, *, force=False):  # type: ignore[no-untyped-def]
+        self.plan_call_kwargs = {"force": force}
+        from pydantic_ai_summarization.processor import CompressionPlan
+
+        idx = min(self._cutoff_index, len(messages))
+        return CompressionPlan(
+            cutoff_index=idx,
+            messages_to_summarize=messages[:idx],
+            preserved_messages=messages[idx:],
+            system_parts=[],
+        )
+
+    async def execute_plan(self, plan, focus=None):  # type: ignore[no-untyped-def]
+        from pydantic_ai_summarization.processor import SummarizationResult
+
+        self.execute_call_kwargs = {"focus": focus}
+        if not self._summarized:
+            return SummarizationResult(
+                messages=[*plan.messages_to_summarize, *plan.preserved_messages],
+                summarized=False,
+                skip_reason="failed",
+            )
+        return SummarizationResult(
+            messages=[*plan.preserved_messages],
+            summarized=True,
+            cutoff_index=plan.cutoff_index,
+            summary="stub summary",
+        )
+
+
+class TestContextManagerHookContract:
+    """Tests for the on_before_compress / on_after_compress contract (issue #30)."""
+
+    @pytest.mark.anyio
+    async def test_on_before_compress_receives_real_cutoff(self):
+        """on_before_compress receives the processor's actual cutoff index, not 0."""
+        before_calls: list[tuple[int, int]] = []
+
+        def on_before_compress(messages, cutoff_index: int) -> None:
+            before_calls.append((len(messages), cutoff_index))
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_before_compress=on_before_compress)
+        stub = _ProcessorStub(cutoff_index=7)
+        cap._summarization_processor = stub  # type: ignore[assignment]
+
+        messages = [ModelRequest(parts=[UserPromptPart(content="x")])] * 10
+        await cap.compact(messages)
+
+        assert before_calls == [(10, 7)]
+
+    @pytest.mark.anyio
+    async def test_on_after_compress_receives_summary_and_summarized_flag(self):
+        """on_after_compress is called with (messages, summarized=True, summary)."""
+        after_calls: list[tuple[bool, str | None]] = []
+
+        def on_after_compress(messages, summarized: bool, summary: str | None) -> None:
+            after_calls.append((summarized, summary))
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_after_compress=on_after_compress)
+        cap._summarization_processor = _ProcessorStub()  # type: ignore[assignment]
+
+        await cap.compact([ModelRequest(parts=[UserPromptPart(content="x")])])
+
+        assert after_calls == [(True, "stub summary")]
+
+    @pytest.mark.anyio
+    async def test_on_after_compress_fires_with_false_when_summary_fails(self):
+        """on_after_compress receives summarized=False when the LLM fails."""
+        after_calls: list[tuple[bool, str | None]] = []
+
+        def on_after_compress(messages, summarized: bool, summary: str | None) -> None:
+            after_calls.append((summarized, summary))
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_after_compress=on_after_compress)
+        cap._summarization_processor = _ProcessorStub(summarized=False)  # type: ignore[assignment]
+
+        await cap.compact([ModelRequest(parts=[UserPromptPart(content="x")])])
+
+        assert after_calls == [(False, None)]
+        # And compression_count is not incremented.
+        assert cap.compression_count == 0
+
+    @pytest.mark.anyio
+    async def test_reinject_only_when_summarized(self):
+        """The str returned by on_after_compress is re-injected only when summarized=True."""
+
+        reinjected: list[str] = []
+
+        def on_after_compress(messages, summarized: bool, summary):
+            reinjected.append("INSTRUCTION")
+            return "INSTRUCTION"
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_after_compress=on_after_compress)
+        cap._summarization_processor = _ProcessorStub(summarized=False)  # type: ignore[assignment]
+
+        messages = [ModelRequest(parts=[UserPromptPart(content="x")])]
+        result = await cap.compact(messages)
+
+        # Callback fired, returned a str, but reinject was suppressed because summarized=False.
+        assert reinjected == ["INSTRUCTION"]
+        # Messages unchanged.
+        assert result == messages
+
+    @pytest.mark.anyio
+    async def test_reinject_applied_when_summarized(self):
+        """When summarized=True and on_after_compress returns a str, it's re-injected."""
+        from pydantic_ai.messages import ModelRequest, SystemPromptPart
+
+        def on_after_compress(messages, summarized: bool, summary):
+            return "CRITICAL RULES"
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_after_compress=on_after_compress)
+        cap._summarization_processor = _ProcessorStub(summarized=True, cutoff_index=2)  # type: ignore[assignment]
+
+        # Need at least cutoff_index+1 messages so preserved is non-empty.
+        messages = [ModelRequest(parts=[UserPromptPart(content=f"msg {i}")]) for i in range(4)]
+        result = await cap.compact(messages)
+
+        # First message gained a SystemPromptPart with the reinjected text.
+        assert isinstance(result[0], ModelRequest)
+        system_contents = [p.content for p in result[0].parts if isinstance(p, SystemPromptPart)]
+        assert "CRITICAL RULES" in system_contents
+
+    @pytest.mark.anyio
+    async def test_usage_update_fires_again_after_compression(self):
+        """on_usage_update fires a second time after compression completes."""
+        from types import SimpleNamespace
+
+        calls: list[tuple[float, int, int]] = []
+
+        def on_usage(pct: float, current: int, max_tokens: int) -> None:
+            calls.append((pct, current, max_tokens))
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_usage_update=on_usage)
+        cap._summarization_processor = _ProcessorStub(summarized=True)  # type: ignore[assignment]
+        cap.request_compact()  # force compression on next before_model_request
+
+        ctx = _make_ctx()
+        request_context = SimpleNamespace(
+            messages=[ModelRequest(parts=[UserPromptPart(content=f"m{i}")]) for i in range(4)]
+        )
+        await cap.before_model_request(ctx, request_context)
+
+        # Two usage callbacks: pre-compression and post-compression.
+        assert len(calls) == 2
+        # request_context.messages was replaced with the post-compression list.
+        assert len(request_context.messages) < 4
+
+    @pytest.mark.anyio
+    async def test_before_model_request_without_usage_callback(self):
+        """Compression works when on_usage_update is None (no second callback attempted)."""
+        from types import SimpleNamespace
+
+        cap = ContextManagerCapability(max_tokens=100_000)  # no on_usage_update
+        cap._summarization_processor = _ProcessorStub(summarized=True, cutoff_index=2)  # type: ignore[assignment]
+        cap.request_compact()
+
+        ctx = _make_ctx()
+        request_context = SimpleNamespace(
+            messages=[ModelRequest(parts=[UserPromptPart(content=f"m{i}")]) for i in range(4)]
+        )
+        await cap.before_model_request(ctx, request_context)
+
+        # Compression happened even with no usage callback.
+        assert len(request_context.messages) < 4
+
+    @pytest.mark.anyio
+    async def test_reinject_skipped_when_first_message_not_request(self):
+        """Reinject is a no-op when the compressed history starts with a ModelResponse.
+
+        Covers the defensive branch where messages[0] isn't a ModelRequest —
+        e.g. when the user provides a history that begins with an assistant turn.
+        """
+        from pydantic_ai.messages import ModelResponse, TextPart
+
+        def on_after_compress(messages, summarized: bool, summary):
+            return "SHOULD NOT APPEAR"
+
+        cap = ContextManagerCapability(max_tokens=100_000, on_after_compress=on_after_compress)
+        cap._summarization_processor = _ProcessorStub(summarized=True, cutoff_index=2)  # type: ignore[assignment]
+
+        # After slicing at cutoff=2, preserved_messages starts with a ModelResponse.
+        messages = [
+            ModelRequest(parts=[UserPromptPart(content="m0")]),
+            ModelRequest(parts=[UserPromptPart(content="m1")]),
+            ModelResponse(parts=[TextPart(content="a2")]),  # becomes result.messages[0]
+            ModelRequest(parts=[UserPromptPart(content="m3")]),
+        ]
+        result = await cap.compact(messages)
+
+        # Compression happened but reinject was skipped — no new SystemPromptPart.
+        assert isinstance(result[0], ModelResponse)
+        # Result is shorter than input.
+        assert len(result) < len(messages)
 
 
 class TestMultipleCapabilities:

@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.8] - 2026-06-17
+
+### Changed
+
+- **`ContextManagerCapability` compress hooks now match what actually happened** ([#30](https://github.com/vstorm-co/summarization-pydantic-ai/issues/30)). The hook contract was previously misleading on every dimension: `on_before_compress` hardcoded the cutoff index to `0`, `on_after_compress` fired even when nothing compressed, the `compact_conversation` tool could be a silent no-op when the processor's trigger didn't agree with the capability's threshold, and there was no way to retrieve the generated summary text. The compress decision is now owned solely by `SummarizationProcessor`, with the capability relaying its plan:
+
+  - `on_before_compress(messages, cutoff_index)` now receives the real cutoff index. It fires between the processor's plan and execute steps, preserving the "before compression runs" timing promise.
+  - `on_after_compress(messages, summarized, summary)` now takes a boolean outcome flag and the generated summary text (or `None`). Return a `str` to re-inject it as a `SystemPromptPart`; re-injection only happens when `summarized=True`.
+  - `compact()`, `request_compact()`, and the `compact_conversation` tool pass `force=True` to the processor, so manual compaction is never silently vetoed by the trigger check.
+  - `compression_count` increments only when a summary was actually produced (was previously incremented unconditionally on every `compact()` call).
+
+  This is a breaking change to the `on_after_compress` signature (old `(messages) -> str | None`; new `(messages, summarized, summary) -> str | None`). `on_before_compress`'s signature is unchanged — old callbacks keep working as long as they ignore extra args.
+
+### Added
+
+- **`SummarizationProcessor.plan_compression(messages, *, force=False)`** — decide whether and where to compress without running the summary LLM. Returns a `CompressionPlan` (cutoff index + sliced messages + system parts) or `None` when no trigger matches.
+- **`SummarizationProcessor.execute_plan(plan, focus=None)`** — run the summary LLM and build a `SummarizationResult`. On LLM failure, returns `summarized=False` with the original history reconstructed from the plan slices.
+- **`SummarizationProcessor.process(messages, focus=None, *, force=False)`** — one-shot plan + execute returning a structured `SummarizationResult`.
+- **`SummarizationResult`** dataclass — `messages`, `summarized`, `cutoff_index`, `summary`, `skip_reason`. Exposes what was previously invisible to callers (whether compression happened, why not, the generated text).
+- **`CompressionPlan`** dataclass — cutoff index + sliced messages, used between plan and execute.
+- **`SkipReason`** literal — `"not_triggered"`, `"cutoff_zero"`, `"failed"`.
+- All five names exported from the package root.
+
+### Fixed
+
+- **Manual `compact()` no longer silently no-ops.** Previously `compact()` called the processor without bypassing triggers, so a manual compaction request could return the input unchanged with no signal to the caller. It now uses `force=True` and increments `compression_count` only when compression actually happened.
+
+### Backwards compatibility
+
+`SummarizationProcessor.__call__(messages, focus=None) -> list[ModelMessage]` is preserved as a thin wrapper around `process()`, so existing pydantic-ai `history_processors=[processor]` integrations keep working unchanged. Only callers that consume `on_after_compress` need to update their callback signature.
+
 ## [0.1.7] - 2026-06-04
 
 ### Fixed

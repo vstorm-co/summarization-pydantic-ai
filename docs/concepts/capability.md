@@ -49,20 +49,25 @@ guides the summary to prioritize specific topics.
 | `tool_output_head_lines` | `5` | Lines kept from the start of a truncated tool output. |
 | `tool_output_tail_lines` | `5` | Lines kept from the end of a truncated tool output. |
 | `on_usage_update` | `None` | Callback `(pct, current, max_tokens)` invoked on every model request (and again after compression) for live token tracking. |
-| `on_before_compress` | `None` | Callback `(messages, cutoff_index)` invoked just before compression runs. |
-| `on_after_compress` | `None` | Callback `(messages)`; if it returns a `str`, that text is re-injected into the first request as a `SystemPromptPart`. |
+| `on_before_compress` | `None` | Callback `(messages, cutoff_index)` invoked between plan and execute, with the **real** cutoff index the processor chose. Not called when no compression will run. |
+| `on_after_compress` | `None` | Callback `(messages, summarized, summary)` invoked after the attempt. `summarized=False` covers both "trigger fired but LLM failed" cases. Returns an optional `str` re-injected as a `SystemPromptPart` on the first message (only when `summarized=True`). |
 | `include_compact_tool` | `False` | When `True`, registers the `compact_conversation` agent tool. |
 
 #### Auto-compression mechanism
 
-On every `before_model_request`, the capability counts the tokens in the current history
-and computes `pct = total / max_tokens`. It calls `on_usage_update(pct, total, max_tokens)`
-if provided. Compression runs when `pct >= compress_threshold` **or** when a manual
-compaction has been requested (via the `compact_conversation` tool or
-[`request_compact()`][pydantic_ai_summarization.capability.ContextManagerCapability.request_compact]).
-Internally it drives a [`SummarizationProcessor`][pydantic_ai_summarization.processor.SummarizationProcessor]
-configured with `trigger=("fraction", compress_threshold)`, `keep`, and
-`max_input_tokens=max_tokens`, so the summary keeps only the tail specified by `keep`.
+On every `before_model_request`, the capability counts tokens and calls
+`on_usage_update(pct, total, max_tokens)` if provided. The capability then delegates the
+compress-or-not decision to its [`SummarizationProcessor`][pydantic_ai_summarization.processor.SummarizationProcessor]
+(via the two-phase `plan_compression` / `execute_plan` API): the processor is the single
+decision-maker for both *whether* and *where* to compress. When a plan exists,
+`on_before_compress(messages, cutoff_index)` fires with the actual cutoff index, then the
+summary LLM runs, then `on_after_compress(messages, summarized, summary)` fires with the
+outcome. Manual compaction
+([`request_compact()`][pydantic_ai_summarization.capability.ContextManagerCapability.request_compact],
+the `compact_conversation` tool, or
+[`compact()`][pydantic_ai_summarization.capability.ContextManagerCapability.compact])
+passes `force=True`, so it always attempts compression rather than being silently vetoed by
+the trigger check.
 
 ### SummarizationCapability
 

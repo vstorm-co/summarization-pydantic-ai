@@ -39,7 +39,7 @@ from pydantic_ai_summarization.types import ContextSize, ModelType, TokenCounter
 # Callback types (matching middleware.py but defined here to avoid the dependency)
 UsageCallback = Any  # (pct: float, current: int, max_tokens: int) -> None
 BeforeCompressCallback = Any  # (messages: list, cutoff_index: int) -> None
-AfterCompressCallback = Any  # (messages: list) -> str | None
+AfterCompressCallback = Any  # (messages: list, summarized: bool, summary: str | None) -> str | None
 
 
 def _resolve_max_tokens(model_id: str) -> int | None:  # pragma: no cover
@@ -369,24 +369,77 @@ class ContextManagerCapability(AbstractCapability[Any]):
     ) -> list[ModelMessage]:
         """Directly compact messages. Callable outside agent.run().
 
+        Always attempts compression (`force=True`), matching the contract of
+        the `compact_conversation` tool — calling this method should not be a
+        no-op (issue #30 point #3). Fires `on_before_compress` /
+        `on_after_compress` the same way `before_model_request` does, so
+        direct callers observe the same hook contract. Compression count only
+        increments when a summary was actually produced.
+
         Args:
             messages: Message history to compress.
             focus: Optional focus instructions for the summary.
 
         Returns:
-            Compressed message list.
+            Compressed message list (or input unchanged if the summary LLM failed).
+        """
+        return await self._run_compression(messages, focus, force=True)
+
+    async def _run_compression(
+        self,
+        messages: list[ModelMessage],
+        focus: str | None,
+        *,
+        force: bool,
+    ) -> list[ModelMessage]:
+        """Shared two-phase compression driver used by compact() and before_model_request.
+
+        Fires on_before_compress with the real cutoff index between plan and
+        execute, and on_after_compress with the outcome flag + summary text.
         """
         assert self._summarization_processor is not None
-        compressed = await self._summarization_processor(messages, focus)
-        self._compression_count += 1
-        return compressed
+        plan = await self._summarization_processor.plan_compression(messages, force=force)
+
+        if plan is None:
+            return messages
+
+        if self.on_before_compress is not None:
+            self.on_before_compress(messages, plan.cutoff_index)
+
+        result = await self._summarization_processor.execute_plan(plan, focus)
+
+        if result.summarized:
+            self._compression_count += 1
+            messages = result.messages
+
+        if self.on_after_compress is not None:
+            reinject = self.on_after_compress(messages, result.summarized, result.summary)
+            if result.summarized and isinstance(reinject, str) and messages:
+                from pydantic_ai.messages import ModelRequest, SystemPromptPart
+
+                first = messages[0]
+                if isinstance(first, ModelRequest):
+                    messages[0] = ModelRequest(
+                        parts=[*first.parts, SystemPromptPart(content=reinject)],
+                        instructions=first.instructions,
+                    )
+
+        return messages
 
     async def before_model_request(
         self,
         ctx: RunContext[Any],
         request_context: Any,
     ) -> Any:
-        """Track tokens, auto-compress when threshold reached."""
+        """Track tokens, auto-compress when threshold reached.
+
+        The summarization processor is the single decision-maker for *whether*
+        and *where* to compress: this capability just relays its plan to the
+        `on_before_compress` / `on_after_compress` hooks. Manual compaction
+        (`request_compact()` / the `compact_conversation` tool) sets
+        `force=True`, so the tool call always compresses rather than being
+        silently vetoed by the trigger check.
+        """
         messages: list[ModelMessage] = request_context.messages
 
         max_tok = self._resolved_max_tokens
@@ -396,31 +449,15 @@ class ContextManagerCapability(AbstractCapability[Any]):
         if self.on_usage_update is not None:
             self.on_usage_update(pct, total, max_tok)
 
-        should_compress = pct >= self.compress_threshold or self._compact_requested
-        if should_compress:  # pragma: no cover — compression requires LLM call
-            self._compact_requested = False
-            focus = self._compact_focus
-            self._compact_focus = None
+        force = self._compact_requested
+        self._compact_requested = False
+        focus = self._compact_focus
+        self._compact_focus = None
 
-            if self.on_before_compress is not None:
-                self.on_before_compress(messages, 0)
+        messages = await self._run_compression(messages, focus, force=force)
 
-            assert self._summarization_processor is not None
-            messages = await self._summarization_processor(messages, focus)
-            self._compression_count += 1
-
-            if self.on_after_compress is not None:
-                result = self.on_after_compress(messages)
-                if isinstance(result, str) and messages:
-                    from pydantic_ai.messages import ModelRequest, SystemPromptPart
-
-                    first = messages[0]
-                    if isinstance(first, ModelRequest):
-                        messages[0] = ModelRequest(
-                            parts=[*first.parts, SystemPromptPart(content=result)],
-                            instructions=first.instructions,
-                        )
-
+        if messages is not request_context.messages:
+            # Compression happened (or was attempted): report the new usage.
             new_total = await async_count_tokens(self.token_counter, messages)
             new_pct = new_total / max_tok if max_tok > 0 else 0.0
             if self.on_usage_update is not None:

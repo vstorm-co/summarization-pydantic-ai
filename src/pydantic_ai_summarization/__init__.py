@@ -33,7 +33,10 @@ from pydantic_ai_summarization.limit_warner import (
 from pydantic_ai_summarization.processor import (
     DEFAULT_CONTINUATION_PROMPT,
     DEFAULT_SUMMARY_PROMPT,
+    CompressionPlan,
+    SkipReason,
     SummarizationProcessor,
+    SummarizationResult,
     count_tokens_approximately,
     create_summarization_processor,
     format_messages_for_summary,
@@ -65,6 +68,9 @@ __all__ = [
     "ContextManagerCapability",
     # Processors (standalone)
     "SummarizationProcessor",
+    "SummarizationResult",
+    "CompressionPlan",
+    "SkipReason",
     "create_summarization_processor",
     "SlidingWindowProcessor",
     "create_sliding_window_processor",

@@ -650,3 +650,189 @@ class TestAsyncTokenCounterCallPath:
         result = await processor(messages)
 
         assert result == messages
+
+
+class TestTwoPhaseApi:
+    """Tests for plan_compression / execute_plan / process (issue #30)."""
+
+    @pytest.mark.anyio
+    async def test_plan_returns_none_when_below_trigger(self):
+        """plan_compression returns None when no trigger condition matches."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 100),
+            keep=("messages", 4),
+        )
+        messages = _build_summarizable_messages(count=2)
+        plan = await processor.plan_compression(messages)
+        assert plan is None
+
+    @pytest.mark.anyio
+    async def test_plan_returns_none_when_cutoff_collapses_to_zero(self):
+        """plan_compression returns None when cutoff computes to 0.
+
+        Trigger fires (5+ messages) but keep=("messages", N) where N >= len(messages)
+        collapses the cutoff to 0, so there's nothing to summarize.
+        """
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 100),  # larger than message count
+        )
+        messages = _build_summarizable_messages(count=6)
+        plan = await processor.plan_compression(messages)
+        assert plan is None
+
+    @pytest.mark.anyio
+    async def test_plan_returns_plan_when_triggered(self):
+        """plan_compression returns a plan with the real cutoff index."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        messages = _build_summarizable_messages(count=6)  # 12 messages total
+        plan = await processor.plan_compression(messages)
+
+        assert plan is not None
+        # cutoff is len(messages) - keep_value, adjusted for safe cutoff.
+        assert 0 < plan.cutoff_index < len(messages)
+        assert len(plan.messages_to_summarize) == plan.cutoff_index
+        assert len(plan.preserved_messages) == len(messages) - plan.cutoff_index
+        # Slicing must reconstruct the original.
+        assert plan.messages_to_summarize + plan.preserved_messages == messages
+
+    @pytest.mark.anyio
+    async def test_plan_force_bypasses_trigger_check(self):
+        """force=True plans compression even when trigger conditions don't match."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 100),  # never matches
+            keep=("messages", 4),
+        )
+        messages = _build_summarizable_messages(count=6)
+
+        # Without force: no plan.
+        assert await processor.plan_compression(messages) is None
+
+        # With force: plan is returned.
+        plan = await processor.plan_compression(messages, force=True)
+        assert plan is not None
+        assert plan.cutoff_index > 0
+
+    @pytest.mark.anyio
+    async def test_execute_plan_succeeds(self):
+        """execute_plan returns a SummarizationResult with summarized=True."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(
+            FunctionModel(lambda m, i: _MR(parts=[TextPart(content="Compact summary")]))
+        )
+        messages = _build_summarizable_messages(count=6)
+        plan = await processor.plan_compression(messages)
+        assert plan is not None
+
+        result = await processor.execute_plan(plan, focus="api design")
+
+        assert result.summarized is True
+        assert result.summary == "Compact summary"
+        assert result.cutoff_index == plan.cutoff_index
+        # First message is the summary-bearing ModelRequest.
+        assert isinstance(result.messages[0], ModelRequest)
+        assert len(result.messages) < len(messages)
+
+    @pytest.mark.anyio
+    async def test_execute_plan_handles_llm_failure(self):
+        """execute_plan returns summarized=False on LLM failure, preserving history."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+
+        def boom(messages: list[ModelMessage], info: AgentInfo) -> _MR:
+            raise RuntimeError("summary LLM exploded")
+
+        processor._summarization_agent = Agent(FunctionModel(boom))
+        messages = _build_summarizable_messages(count=6)
+        plan = await processor.plan_compression(messages)
+        assert plan is not None
+
+        result = await processor.execute_plan(plan)
+
+        assert result.summarized is False
+        assert result.summary is None
+        assert result.skip_reason == "failed"
+        # Reconstructed history matches the original.
+        assert result.messages == messages
+
+    @pytest.mark.anyio
+    async def test_process_no_trigger_returns_not_triggered(self):
+        """process() returns skip_reason='not_triggered' when below threshold."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 100),
+            keep=("messages", 4),
+        )
+        messages = _build_summarizable_messages(count=2)
+        result = await processor.process(messages)
+
+        assert result.summarized is False
+        assert result.skip_reason == "not_triggered"
+        assert result.messages == messages
+
+    @pytest.mark.anyio
+    async def test_process_cutoff_zero_returns_cutoff_zero(self):
+        """process() returns skip_reason='cutoff_zero' when trigger fires but cutoff is 0."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 100),  # collapses cutoff to 0
+        )
+        messages = _build_summarizable_messages(count=6)
+        result = await processor.process(messages)
+
+        assert result.summarized is False
+        assert result.skip_reason == "cutoff_zero"
+        assert result.messages == messages
+
+    @pytest.mark.anyio
+    async def test_process_force_bypasses_trigger(self):
+        """process(force=True) compresses even when triggers don't match."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 100),  # never matches
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(
+            FunctionModel(lambda m, i: _MR(parts=[TextPart(content="Forced summary")]))
+        )
+        messages = _build_summarizable_messages(count=6)
+
+        result = await processor.process(messages, force=True)
+
+        assert result.summarized is True
+        assert result.summary == "Forced summary"
+        assert len(result.messages) < len(messages)
+
+    @pytest.mark.anyio
+    async def test_call_returns_messages_only(self):
+        """__call__ stays backwards-compatible: returns list[ModelMessage], not result."""
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1",
+            trigger=("messages", 5),
+            keep=("messages", 4),
+        )
+        processor._summarization_agent = Agent(
+            FunctionModel(lambda m, i: _MR(parts=[TextPart(content="SUMMARY")]))
+        )
+        messages = _build_summarizable_messages(count=6)
+
+        result = await processor(messages)
+
+        # Plain list, no .summarized attribute on it.
+        assert isinstance(result, list)
+        assert not hasattr(result, "summarized")

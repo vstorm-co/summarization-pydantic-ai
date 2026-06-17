@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic_ai import Agent
 from pydantic_ai.messages import (
@@ -108,6 +108,52 @@ _DEFAULT_MESSAGES_TO_KEEP = 20
 _DEFAULT_TRIGGER_TOKENS = 170000
 _DEFAULT_TRIM_TOKEN_LIMIT = 4000
 _SEARCH_RANGE_FOR_TOOL_PAIRS = 5
+
+
+SkipReason = Literal["not_triggered", "cutoff_zero", "failed"]
+"""Why a compression attempt did not summarize.
+
+- `"not_triggered"`: no trigger condition matched (or `force=False` and below threshold).
+- `"cutoff_zero"`: trigger matched but the retention config collapsed the cutoff to 0.
+- `"failed"`: summary generation raised and the original history was preserved.
+"""
+
+
+@dataclass
+class CompressionPlan:
+    """Planned compression decision (no LLM call yet).
+
+    Built by `SummarizationProcessor.plan_compression` so callers can react to
+    the cutoff decision before the summary LLM runs (e.g. fire `on_before_compress`).
+    """
+
+    cutoff_index: int
+    messages_to_summarize: list[ModelMessage]
+    preserved_messages: list[ModelMessage]
+    system_parts: list[SystemPromptPart]
+
+
+@dataclass
+class SummarizationResult:
+    """Structured outcome of a compression attempt.
+
+    Attributes:
+        messages: Resulting message history. Unchanged from input when
+            `summarized=False`.
+        summarized: Whether a summary was actually produced and applied.
+            False covers trigger-not-met, cutoff-collapsed-to-zero, and LLM
+            failure paths — previously indistinguishable from the caller's side.
+        cutoff_index: Index the history was split at. Meaningful only when
+            `summarized=True`; otherwise `0`.
+        summary: Generated summary text, or `None` when `summarized=False`.
+        skip_reason: Diagnostic reason when `summarized=False`. `None` on success.
+    """
+
+    messages: list[ModelMessage]
+    summarized: bool
+    cutoff_index: int = 0
+    summary: str | None = None
+    skip_reason: SkipReason | None = None
 
 
 def count_tokens_approximately(messages: Sequence[ModelMessage]) -> int:  # pragma: no branch
@@ -387,24 +433,32 @@ class SummarizationProcessor:
         result = await agent.run(prompt)
         return result.output.strip()
 
-    async def __call__(
-        self, messages: list[ModelMessage], focus: str | None = None
-    ) -> list[ModelMessage]:
-        """Process messages and summarize if needed.
+    async def plan_compression(
+        self,
+        messages: list[ModelMessage],
+        *,
+        force: bool = False,
+    ) -> CompressionPlan | None:
+        """Decide whether and where to compress, without running the summary LLM.
 
-        This is the main entry point called by pydantic-ai's history processor mechanism.
+        The capability can use the returned plan to fire `on_before_compress`
+        with the real cutoff index before the LLM call runs. This is a pure
+        decision step: no network calls, no message mutation.
 
         Args:
             messages: Current message history.
-            focus: Optional focus topic to prioritize when generating the summary.
+            force: When `True`, bypass trigger-condition checks. Use for manual
+                compaction requests (the `compact_conversation` tool or
+                `request_compact()`), which should always attempt compression.
 
         Returns:
-            Processed message history, potentially with older messages summarized.
+            A `CompressionPlan` if compression should proceed, or `None` if no
+            trigger matched (or the cutoff collapsed to 0).
         """
         total_tokens = await _async_count_tokens(self.token_counter, messages)
 
-        if not self._should_summarize(messages, total_tokens):
-            return messages
+        if not force and not self._should_summarize(messages, total_tokens):
+            return None
 
         cutoff_index = await _async_determine_cutoff(
             messages,
@@ -415,26 +469,98 @@ class SummarizationProcessor:
         )
 
         if cutoff_index <= 0:
-            return messages
+            return None
 
         system_parts = _extract_system_prompts(messages)
-        messages_to_summarize = messages[:cutoff_index]
-        preserved_messages = messages[cutoff_index:]
+        return CompressionPlan(
+            cutoff_index=cutoff_index,
+            messages_to_summarize=messages[:cutoff_index],
+            preserved_messages=messages[cutoff_index:],
+            system_parts=system_parts,
+        )
 
+    async def execute_plan(
+        self,
+        plan: CompressionPlan,
+        focus: str | None = None,
+    ) -> SummarizationResult:
+        """Execute a compression plan: run the summary LLM and build the result.
+
+        On LLM failure, returns a `SummarizationResult` with `summarized=False`
+        and `skip_reason="failed"`, with `messages` reconstructed from the plan
+        (equivalent to the original input). The original history is preserved
+        rather than partially mutated.
+        """
         try:
-            summary = await self._create_summary(messages_to_summarize, focus)
+            summary = await self._create_summary(plan.messages_to_summarize, focus)
         except Exception:
-            # If summary generation fails, skip summarization and keep the original
-            # history intact rather than discarding context or injecting error text
-            # (which could leak sensitive details) into the model-visible prompt.
+            # Keep the original history intact rather than discarding context or
+            # injecting error text (which could leak sensitive details) into the
+            # model-visible prompt. Reconstruct by concatenating the plan slices.
             logger.exception("Summarization failed; keeping original message history.")
-            return messages
+            return SummarizationResult(
+                messages=[*plan.messages_to_summarize, *plan.preserved_messages],
+                summarized=False,
+                skip_reason="failed",
+            )
 
-        # Create summary message with preserved system prompts
         summary_part = SystemPromptPart(content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}")
-        summary_message = ModelRequest(parts=[*system_parts, summary_part])
+        summary_message = ModelRequest(parts=[*plan.system_parts, summary_part])
+        return SummarizationResult(
+            messages=[summary_message, *plan.preserved_messages],
+            summarized=True,
+            cutoff_index=plan.cutoff_index,
+            summary=summary,
+        )
 
-        return [summary_message, *preserved_messages]
+    async def process(
+        self,
+        messages: list[ModelMessage],
+        focus: str | None = None,
+        *,
+        force: bool = False,
+    ) -> SummarizationResult:
+        """One-shot plan + execute. Returns a structured result.
+
+        Use this when you want both the resulting messages and diagnostic
+        metadata (whether compression happened, cutoff index, summary text)
+        in a single call.
+
+        Args:
+            messages: Current message history.
+            focus: Optional focus topic for the summary.
+            force: Bypass trigger checks (manual compaction).
+
+        Returns:
+            `SummarizationResult` describing the outcome.
+        """
+        plan = await self.plan_compression(messages, force=force)
+        if plan is None:
+            # plan_compression collapses "not triggered" and "cutoff_zero" into
+            # None; re-check to give callers a precise skip_reason.
+            total_tokens = await _async_count_tokens(self.token_counter, messages)
+            if not force and not self._should_summarize(messages, total_tokens):
+                skip_reason: SkipReason = "not_triggered"
+            else:
+                skip_reason = "cutoff_zero"
+            return SummarizationResult(
+                messages=messages,
+                summarized=False,
+                skip_reason=skip_reason,
+            )
+        return await self.execute_plan(plan, focus)
+
+    async def __call__(
+        self, messages: list[ModelMessage], focus: str | None = None
+    ) -> list[ModelMessage]:
+        """History-processor entry point. Returns the resulting messages only.
+
+        Backwards-compatible with pydantic-ai's `history_processors` contract
+        (`(messages) -> messages`). Loses the structured metadata — use
+        `process()` directly if you need `summarized` / `cutoff_index` / `summary`.
+        """
+        result = await self.process(messages, focus=focus)
+        return result.messages
 
 
 def create_summarization_processor(
@@ -503,7 +629,10 @@ def create_summarization_processor(
 
 __all__ = [
     "DEFAULT_SUMMARY_PROMPT",
+    "CompressionPlan",
+    "SkipReason",
     "SummarizationProcessor",
+    "SummarizationResult",
     "count_tokens_approximately",
     "create_summarization_processor",
     "format_messages_for_summary",
