@@ -6,7 +6,13 @@ from typing import Any
 
 import pytest
 from pydantic_ai import Agent, RunContext
-from pydantic_ai.messages import ModelRequest, ToolCallPart, UserPromptPart
+from pydantic_ai.messages import (
+    BinaryContent,
+    ModelRequest,
+    ToolCallPart,
+    ToolReturn,
+    UserPromptPart,
+)
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.usage import RunUsage
@@ -182,6 +188,46 @@ class TestContextManagerCapability:
         )
         assert result == large
 
+    @pytest.mark.anyio
+    async def test_tool_return_binary_not_stringified(self):
+        """A ToolReturn carrying BinaryContent must never be stringified."""
+        cap = ContextManagerCapability(max_tool_output_tokens=10)  # 40 chars
+        ctx = _make_ctx()
+        call = ToolCallPart(tool_name="read_file", args={}, tool_call_id="c1")
+        tool_def = ToolDefinition(name="read_file", description="read")
+
+        big_pdf = b"%PDF-1.4\n" + b"\x00" * 5_000_000
+        tr = ToolReturn(
+            return_value="Successfully read file: doc.pdf",
+            content=[
+                "Content of doc.pdf:",
+                BinaryContent(data=big_pdf, media_type="application/pdf"),
+            ],
+        )
+
+        result = await cap.after_tool_execute(ctx, call=call, tool_def=tool_def, args={}, result=tr)
+
+        assert isinstance(result, ToolReturn)
+        assert result.return_value == "Successfully read file: doc.pdf"
+        assert result.content is not None
+        binary = result.content[1]
+        assert isinstance(binary, BinaryContent)
+        assert len(binary.data) == len(big_pdf)
+
+    @pytest.mark.anyio
+    async def test_tool_return_long_text_return_value_truncated(self):
+        """A ToolReturn's large textual return_value is still truncated."""
+        cap = ContextManagerCapability(max_tool_output_tokens=10)  # 40 chars
+        ctx = _make_ctx()
+        call = ToolCallPart(tool_name="grep", args={}, tool_call_id="c1")
+        tool_def = ToolDefinition(name="grep", description="search")
+
+        tr = ToolReturn(return_value="\n".join(f"line {i}" for i in range(100)))
+        result = await cap.after_tool_execute(ctx, call=call, tool_def=tool_def, args={}, result=tr)
+        assert isinstance(result, ToolReturn)
+        assert "omitted" in str(result.return_value)
+        assert len(str(result.return_value)) < 200
+
 
 class TestTruncateToolOutput:
     def test_short_text_unchanged(self):
@@ -190,6 +236,14 @@ class TestTruncateToolOutput:
 
         result = _truncate_tool_output("line1\nline2\nline3", head_lines=5, tail_lines=5)
         assert result == "line1\nline2\nline3"
+
+    def test_single_long_line_truncated_by_chars(self):
+        """A huge single line (no newlines) is bounded by the char budget."""
+        from pydantic_ai_summarization.capability import _truncate_tool_output
+
+        result = _truncate_tool_output("x" * 100_000, head_lines=5, tail_lines=5, max_chars=1000)
+        assert "characters omitted" in result
+        assert len(result) < 1100
 
 
 class TestSerializationNames:

@@ -22,7 +22,7 @@ from typing import Any
 
 from pydantic_ai import RunContext
 from pydantic_ai.capabilities import AbstractCapability
-from pydantic_ai.messages import ModelMessage, ToolCallPart
+from pydantic_ai.messages import ModelMessage, ToolCallPart, ToolReturn
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.toolsets import FunctionToolset
 
@@ -60,19 +60,26 @@ def _resolve_max_tokens(model_id: str) -> int | None:  # pragma: no cover
     return None
 
 
-def _truncate_tool_output(text: str, head_lines: int, tail_lines: int) -> str:
-    """Truncate tool output keeping head and tail lines."""
+def _truncate_tool_output(
+    text: str, head_lines: int, tail_lines: int, max_chars: int | None = None
+) -> str:
+    """Truncate tool output keeping head and tail lines, bounded by max_chars."""
     lines = text.splitlines()
     total_lines = len(lines)
 
-    if total_lines <= head_lines + tail_lines:
-        return text
+    if total_lines > head_lines + tail_lines:
+        head = lines[:head_lines]
+        tail = lines[-tail_lines:]
+        omitted = total_lines - head_lines - tail_lines
+        return "\n".join([*head, f"\n... ({omitted} lines omitted) ...\n", *tail])
 
-    head = lines[:head_lines]
-    tail = lines[-tail_lines:]
-    omitted = total_lines - head_lines - tail_lines
+    # Few/no newlines to truncate by line: fall back to a character budget.
+    if max_chars is not None and len(text) > max_chars:
+        keep = max(1, max_chars // 2)
+        omitted = len(text) - 2 * keep
+        return f"{text[:keep]}\n... ({omitted} characters omitted) ...\n{text[-keep:]}"
 
-    return "\n".join([*head, f"\n... ({omitted} lines omitted) ...\n", *tail])
+    return text
 
 
 @dataclass
@@ -475,18 +482,36 @@ class ContextManagerCapability(AbstractCapability[Any]):
         args: dict[str, Any],
         result: Any,
     ) -> Any:
-        """Truncate large tool outputs."""
+        """Truncate large tool outputs.
+
+        Only plain ``str`` results and a ``ToolReturn``'s textual
+        ``return_value`` are truncated; a ``ToolReturn`` is never stringified,
+        since its ``content`` may carry ``BinaryContent`` that ``str()`` would
+        inline as a multi-MB blob.
+        """
         if self.max_tool_output_tokens is None:
             return result
 
-        result_str = str(result) if not isinstance(result, str) else result
         char_limit = self.max_tool_output_tokens * 4
 
-        if len(result_str) <= char_limit:
+        if isinstance(result, ToolReturn):
+            if isinstance(result.return_value, str) and len(result.return_value) > char_limit:
+                result.return_value = _truncate_tool_output(
+                    result.return_value,
+                    self.tool_output_head_lines,
+                    self.tool_output_tail_lines,
+                    max_chars=char_limit,
+                )
+            return result
+
+        if not isinstance(result, str) or len(result) <= char_limit:
             return result
 
         return _truncate_tool_output(
-            result_str, self.tool_output_head_lines, self.tool_output_tail_lines
+            result,
+            self.tool_output_head_lines,
+            self.tool_output_tail_lines,
+            max_chars=char_limit,
         )
 
 
