@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-06-25
+
 ### Fixed
 
 - **`LimitWarnerProcessor` no longer drops an already-empty trailing `ModelRequest`.** `_strip_existing_warnings` removed any `ModelRequest` that ended up with no parts, but it also removed requests that were *already* empty before stripping. pydantic-ai appends an empty `ModelRequest` when resuming without a prompt (e.g. on a transient-error retry) so the history ends with a request; stripping it left the history ending on a `ModelResponse`, which trips pydantic-ai's `Processed history must end with a `ModelRequest`` validation (`UserError`). The processor now only drops a request when it actually removed injected warning parts, preserving structural placeholders and any non-warning parts.
+- **`SlidingWindowProcessor` no longer trims the history down to empty on a zero keep.** A `keep=("messages", 0)` config maps the cutoff to `len(messages)`, so the tail slice `messages[cutoff_index:]` collapsed to `[]`. Unlike `SummarizationProcessor` — where a summary message survives a full cutoff — a sliding window has nothing to fall back on, and pydantic-ai rejects the empty result with `Processed history cannot be empty` (`UserError`). The processor now leaves the history untouched when the cutoff lands at or past the end.
 
 ## [0.1.9] - 2026-06-22
 
