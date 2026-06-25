@@ -157,12 +157,17 @@ class LimitWarnerProcessor:
                 continue
 
             parts = [part for part in message.parts if not self._is_limit_warning_part(part)]
-            if not parts:
-                continue
             if len(parts) == len(message.parts):
+                # No warning parts to strip. Keep the request untouched, including an
+                # already-empty `ModelRequest`: that is a structural placeholder (e.g. the
+                # trailing request pydantic-ai appends when resuming without a prompt) and
+                # must survive so the history still ends with a `ModelRequest`.
                 cleaned_messages.append(message)
-            else:
-                cleaned_messages.append(replace(message, parts=parts))  # pragma: no cover
+                continue
+            if not parts:
+                # The request held only warnings we injected; drop the whole turn.
+                continue
+            cleaned_messages.append(replace(message, parts=parts))
 
         return cleaned_messages
 
