@@ -334,6 +334,57 @@ class TestLimitWarnerProcessor:
         assert warning is not None
         assert "Iterations: 8/10" in warning
 
+    @pytest.mark.anyio
+    async def test_preserves_empty_trailing_request_when_resuming(self):
+        """Test an already-empty trailing ModelRequest is not stripped.
+
+        pydantic-ai appends an empty `ModelRequest` when resuming without a
+        prompt so the history ends with a request. Stripping it would leave the
+        history ending on a `ModelResponse`, which trips pydantic-ai's
+        'Processed history must end with a `ModelRequest`' validation.
+        """
+        processor = LimitWarnerProcessor(max_iterations=10)
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content="Earlier question")]),
+            ModelResponse(parts=[TextPart(content="Earlier answer")]),
+            ModelRequest(parts=[]),
+        ]
+        # Below threshold: no new warning is appended, so the only thing that
+        # could change the tail is the (buggy) stripping of the empty request.
+        ctx = _make_ctx(requests=1)
+
+        result = await processor(ctx, messages)
+
+        assert result == messages
+        assert isinstance(result[-1], ModelRequest)
+        assert result[-1].parts == []
+
+    @pytest.mark.anyio
+    async def test_strips_warning_part_but_keeps_real_parts_in_same_request(self):
+        """Test a request mixing a warning part and a real part keeps the real one."""
+        processor = LimitWarnerProcessor(max_iterations=10)
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content="Earlier question")]),
+            ModelResponse(parts=[TextPart(content="Earlier answer")]),
+            ModelRequest(
+                parts=[
+                    UserPromptPart(content="Real question"),
+                    UserPromptPart(content=f"{_WARNING_MARKER}\nstale warning"),
+                ]
+            ),
+        ]
+        ctx = _make_ctx(requests=1)
+
+        result = await processor(ctx, messages)
+
+        assert _generated_warning_text(result) is None
+        trailing = result[-1]
+        assert isinstance(trailing, ModelRequest)
+        assert len(trailing.parts) == 1
+        remaining = trailing.parts[0]
+        assert isinstance(remaining, UserPromptPart)
+        assert remaining.content == "Real question"
+
     def test_factory_custom_token_counter(self):
         """Test factory forwards custom token_counter."""
 
