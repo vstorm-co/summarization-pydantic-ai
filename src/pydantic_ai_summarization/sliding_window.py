@@ -218,6 +218,9 @@ class SlidingWindowProcessor:
         if cutoff_index <= 0:
             return messages
 
+        if cutoff_index >= len(messages):
+            return messages
+
         head_count = self._determine_head_count(messages)
 
         if head_count > 0:

@@ -245,6 +245,25 @@ class TestSlidingWindowProcessor:
         assert result == messages[-3:]
 
     @pytest.mark.anyio
+    async def test_call_zero_keep_does_not_empty_history(self):
+        """Test keep=('messages', 0) does not trim the history down to empty.
+
+        `find_safe_cutoff` maps a zero keep to a cutoff at `len(messages)`,
+        which would discard every message. A sliding window has no summary to
+        fall back on, and pydantic-ai rejects an empty processed history, so the
+        original messages must survive untouched.
+        """
+        processor = SlidingWindowProcessor(
+            trigger=("messages", 5),
+            keep=("messages", 0),
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[UserPromptPart(content=f"Message {i}")]) for i in range(10)
+        ]
+        result = await processor(messages)
+        assert result == messages
+
+    @pytest.mark.anyio
     async def test_call_below_cutoff_threshold(self):
         """Test processor returns messages when below cutoff."""
         processor = SlidingWindowProcessor(
