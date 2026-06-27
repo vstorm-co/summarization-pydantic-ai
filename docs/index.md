@@ -1,8 +1,28 @@
-# Context Management for Pydantic AI
+<p align="center">
+  <img src="assets/social-preview.png" alt="Summarization for Pydantic AI" width="100%">
+</p>
 
-Automatic conversation summarization and context management for [Pydantic AI](https://ai.pydantic.dev/) agents.
+<h1 align="center">Summarization for Pydantic AI</h1>
+
+<p align="center"><em>Unlimited context for long-running agents.</em></p>
+
+<p align="center">
+  <a href="https://pypi.org/project/summarization-pydantic-ai/"><img src="https://img.shields.io/pypi/v/summarization-pydantic-ai.svg" alt="PyPI version"></a>
+  <a href="https://pepy.tech/projects/summarization-pydantic-ai"><img src="https://static.pepy.tech/badge/summarization-pydantic-ai/month" alt="PyPI Downloads"></a>
+  <a href="https://github.com/vstorm-co/summarization-pydantic-ai/stargazers"><img src="https://img.shields.io/github/stars/vstorm-co/summarization-pydantic-ai?style=flat&logo=github&color=yellow" alt="GitHub Stars"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.10+-blue?logo=python&logoColor=white" alt="Python 3.10+"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://coveralls.io/github/vstorm-co/summarization-pydantic-ai?branch=main"><img src="https://coveralls.io/repos/github/vstorm-co/summarization-pydantic-ai/badge.svg?branch=main" alt="Coverage Status"></a>
+  <a href="https://github.com/vstorm-co/summarization-pydantic-ai/actions/workflows/ci.yml"><img src="https://github.com/vstorm-co/summarization-pydantic-ai/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/pydantic/pydantic-ai"><img src="https://img.shields.io/badge/Powered%20by-Pydantic%20AI-E92063?logo=pydantic&logoColor=white" alt="Pydantic AI"></a>
+</p>
 
 ---
+
+!!! tip "Part of Pydantic Deep Agents"
+    **Summarization for Pydantic AI** is one library in [Pydantic Deep Agents](https://github.com/vstorm-co/pydantic-deepagents) — the open-source
+    Claude Code alternative & Python agent framework. Use it standalone, or get every
+    library wired together in a single `create_deep_agent()` call.
 
 **Context Management for Pydantic AI** helps your agents handle long conversations without exceeding model context limits. Choose between intelligent LLM summarization or fast sliding window trimming.
 
