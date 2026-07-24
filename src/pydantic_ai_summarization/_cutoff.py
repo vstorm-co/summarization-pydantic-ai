@@ -112,6 +112,8 @@ def determine_cutoff_index(
     token_counter: TokenCounter,
     max_input_tokens: int | None = None,
     default_keep: int = 20,
+    *,
+    keep_in_flight_request: bool = False,
 ) -> int:
     """Choose cutoff index respecting retention configuration.
 
@@ -121,6 +123,7 @@ def determine_cutoff_index(
         token_counter: Function to count tokens.
         max_input_tokens: Max input tokens (for fraction-based keep).
         default_keep: Fallback number of messages to keep.
+        keep_in_flight_request: See :func:`find_safe_cutoff`.
 
     Returns:
         Index at which to cut the message history.
@@ -128,14 +131,16 @@ def determine_cutoff_index(
     kind, value = keep
 
     if kind == "messages":
-        return find_safe_cutoff(messages, int(value))
+        return find_safe_cutoff(messages, int(value), keep_in_flight_request=keep_in_flight_request)
     elif kind == "tokens":
         return find_token_based_cutoff(messages, int(value), token_counter)
     elif kind == "fraction" and max_input_tokens is not None:
         target_tokens = int(max_input_tokens * value)
         return find_token_based_cutoff(messages, target_tokens, token_counter)
 
-    return find_safe_cutoff(messages, default_keep)  # pragma: no cover
+    return find_safe_cutoff(  # pragma: no cover
+        messages, default_keep, keep_in_flight_request=keep_in_flight_request
+    )
 
 
 def find_token_based_cutoff(
@@ -182,19 +187,35 @@ def find_token_based_cutoff(
     return 0  # pragma: no cover
 
 
-def find_safe_cutoff(messages: list[ModelMessage], messages_to_keep: int) -> int:
+def find_safe_cutoff(
+    messages: list[ModelMessage],
+    messages_to_keep: int,
+    *,
+    keep_in_flight_request: bool = False,
+) -> int:
     """Find safe cutoff point that preserves tool call/response pairs.
 
     Args:
         messages: Current message history.
         messages_to_keep: Number of messages to keep from the end.
-            Use 0 to summarize everything (only summary survives).
+            Use 0 to cut everything.
+        keep_in_flight_request: When `messages_to_keep` is 0, hold back a trailing
+            `ModelRequest` instead of cutting it. Summarization sets this: that request
+            carries the pending tool returns or the new user prompt the imminent model
+            call is about, so cutting it loses the data the model was about to act on
+            and can leave a history that maps to zero provider messages (#40). The
+            sliding window leaves it off — with no summary to fall back on, a zero keep
+            stays the no-op established in #35.
 
     Returns:
         Index at which to cut, preserving tool call/response pairs.
     """
     if messages_to_keep == 0:
-        return len(messages)
+        if not (keep_in_flight_request and messages and isinstance(messages[-1], ModelRequest)):
+            return len(messages)
+        # Falling through with keep=1 also lets the tool-pair check below pull the
+        # matching ToolCallPart back across the cutoff.
+        messages_to_keep = 1
 
     if len(messages) <= messages_to_keep:
         return 0
@@ -319,6 +340,8 @@ async def async_determine_cutoff_index(
     token_counter: TokenCounter,
     max_input_tokens: int | None = None,
     default_keep: int = 0,
+    *,
+    keep_in_flight_request: bool = False,
 ) -> int:
     """Async variant of :func:`determine_cutoff_index`.
 
@@ -327,14 +350,16 @@ async def async_determine_cutoff_index(
     kind, value = keep
 
     if kind == "messages":
-        return find_safe_cutoff(messages, int(value))
+        return find_safe_cutoff(messages, int(value), keep_in_flight_request=keep_in_flight_request)
     elif kind == "tokens":
         return await async_find_token_based_cutoff(messages, int(value), token_counter)
     elif kind == "fraction" and max_input_tokens is not None:
         target_tokens = int(max_input_tokens * value)
         return await async_find_token_based_cutoff(messages, target_tokens, token_counter)
 
-    return find_safe_cutoff(messages, default_keep)  # pragma: no cover
+    return find_safe_cutoff(  # pragma: no cover
+        messages, default_keep, keep_in_flight_request=keep_in_flight_request
+    )
 
 
 async def async_find_token_based_cutoff(

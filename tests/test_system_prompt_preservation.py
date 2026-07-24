@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pydantic_ai import Agent
 from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
@@ -10,9 +11,11 @@ from pydantic_ai.messages import (
     TextPart,
     UserPromptPart,
 )
+from pydantic_ai.models.function import FunctionModel
 
 from pydantic_ai_summarization.processor import (
     DEFAULT_CONTINUATION_PROMPT,
+    SummarizationProcessor,
     _extract_system_prompts,
 )
 
@@ -79,6 +82,50 @@ class TestExtractSystemPrompts:
         assert len(parts) == 2
         assert parts[0].content == "Prompt A"
         assert parts[1].content == "Prompt B"
+
+
+class TestSummariesDoNotAccumulate:
+    """Repeated compressions must not pile stale summaries into the system channel.
+
+    `_extract_system_prompts` carries every leading `SystemPromptPart` forward, so a
+    summary emitted as a system part is re-extracted on the next compression and kept
+    alongside the new one, growing without bound. Keeping the summary in a
+    `UserPromptPart` stops the extraction walk at the summary instead.
+    """
+
+    async def test_only_the_real_system_prompt_survives_repeated_compressions(self):
+        processor = SummarizationProcessor(
+            model="openai:gpt-4.1", trigger=("messages", 1), keep=("messages", 0)
+        )
+        messages: list[ModelMessage] = [
+            ModelRequest(parts=[SystemPromptPart(content="SYS"), UserPromptPart(content="q0")]),
+            ModelResponse(parts=[TextPart(content="a0")]),
+        ]
+
+        for round_number in range(1, 4):
+            processor._summarization_agent = Agent(
+                FunctionModel(
+                    lambda m, i, n=round_number: ModelResponse(
+                        parts=[TextPart(content=f"SUMMARY-{n}")]
+                    )
+                )
+            )
+            result = await processor.process(messages)
+            assert result.summarized is True
+            messages = [
+                *result.messages,
+                ModelRequest(parts=[UserPromptPart(content=f"q{round_number}")]),
+                ModelResponse(parts=[TextPart(content=f"a{round_number}")]),
+            ]
+
+        system_contents = [
+            part.content
+            for message in result.messages
+            if isinstance(message, ModelRequest)
+            for part in message.parts
+            if isinstance(part, SystemPromptPart)
+        ]
+        assert system_contents == ["SYS"]
 
 
 class TestContinuationPrompt:

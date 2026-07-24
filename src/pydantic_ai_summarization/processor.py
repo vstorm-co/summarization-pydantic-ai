@@ -337,6 +337,7 @@ class SummarizationProcessor:
     Examples:
         - ("messages", 20) - keep last 20 messages
         - ("tokens", 10000) - keep last 10k tokens worth
+        - ("messages", 0) - summarize everything except the in-flight request
     """
 
     token_counter: TokenCounter = field(default=count_tokens_approximately)
@@ -378,6 +379,7 @@ class SummarizationProcessor:
             self.token_counter,
             self.max_input_tokens,
             _DEFAULT_MESSAGES_TO_KEEP,
+            keep_in_flight_request=True,
         )
 
     def _find_token_based_cutoff(
@@ -388,7 +390,7 @@ class SummarizationProcessor:
 
     def _find_safe_cutoff(self, messages: list[ModelMessage], messages_to_keep: int) -> int:
         """Find safe cutoff point that preserves AI/Tool message pairs."""
-        return _find_safe(messages, messages_to_keep)
+        return _find_safe(messages, messages_to_keep, keep_in_flight_request=True)
 
     def _is_safe_cutoff_point(self, messages: list[ModelMessage], cutoff_index: int) -> bool:
         """Check if cutting at index would separate AI/Tool message pairs."""
@@ -466,6 +468,7 @@ class SummarizationProcessor:
             self.token_counter,
             self.max_input_tokens,
             _DEFAULT_MESSAGES_TO_KEEP,
+            keep_in_flight_request=True,
         )
 
         if cutoff_index <= 0:
@@ -486,6 +489,11 @@ class SummarizationProcessor:
     ) -> SummarizationResult:
         """Execute a compression plan: run the summary LLM and build the result.
 
+        The rebuilt history opens with a single `ModelRequest` holding the carried-over
+        system prompts plus the summary as a `UserPromptPart`, followed by the preserved
+        tail. The summary is deliberately user-visible so the result always maps to at
+        least one provider message.
+
         On LLM failure, returns a `SummarizationResult` with `summarized=False`
         and `skip_reason="failed"`, with `messages` reconstructed from the plan
         (equivalent to the original input). The original history is preserved
@@ -504,7 +512,13 @@ class SummarizationProcessor:
                 skip_reason="failed",
             )
 
-        summary_part = SystemPromptPart(content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}")
+        # The summary is a user part, not a system one. Providers with a separate
+        # system channel (Anthropic, Google) route SystemPromptParts into a top-level
+        # parameter instead of the message list, so a request built only from system
+        # parts maps to zero provider messages — a history no provider can accept
+        # (#40). Keeping the summary out of the system channel also stops
+        # `_extract_system_prompts` from carrying every past summary forward.
+        summary_part = UserPromptPart(content=f"{DEFAULT_CONTINUATION_PROMPT}{summary}")
         summary_message = ModelRequest(parts=[*plan.system_parts, summary_part])
         return SummarizationResult(
             messages=[summary_message, *plan.preserved_messages],
