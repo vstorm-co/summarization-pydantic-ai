@@ -49,7 +49,11 @@ cap = ContextManagerCapability(
 )
 ```
 
-With the default `keep=("messages", 0)`, only the generated summary survives a compression.
+With the default `keep=("messages", 0)`, a compression leaves the generated summary plus the
+in-flight request — the pending tool returns or the new user prompt the model is about to act
+on. The summary itself is delivered as a user turn, so the rebuilt history is always something
+a provider can accept, including on Anthropic and Google where system prompts travel in a
+separate channel rather than the message list.
 See [Capabilities](../concepts/capability.md) for the full parameter table and a description
 of the threshold mechanism.
 

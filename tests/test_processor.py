@@ -21,6 +21,7 @@ from pydantic_ai_summarization import (
     create_summarization_processor,
     format_messages_for_summary,
 )
+from pydantic_ai_summarization.types import ContextSize
 
 
 class TestTokenCounting:
@@ -836,3 +837,93 @@ class TestTwoPhaseApi:
         # Plain list, no .summarized attribute on it.
         assert isinstance(result, list)
         assert not hasattr(result, "summarized")
+
+
+def _user_visible_parts(messages: list[ModelMessage]) -> list[UserPromptPart | ToolReturnPart]:
+    """Request parts a provider keeps in the message list, not the system channel."""
+    return [
+        part
+        for message in messages
+        if isinstance(message, ModelRequest)
+        for part in message.parts
+        if isinstance(part, UserPromptPart | ToolReturnPart)
+    ]
+
+
+def _summarizing_processor(keep: ContextSize, text: str = "SUMMARY") -> SummarizationProcessor:
+    """Processor that always triggers and returns a fixed summary."""
+    processor = SummarizationProcessor(model="openai:gpt-4.1", trigger=("messages", 1), keep=keep)
+    processor._summarization_agent = Agent(
+        FunctionModel(lambda m, i: _MR(parts=[TextPart(content=text)]))
+    )
+    return processor
+
+
+class TestCompressedHistoryIsSendable:
+    """Regression tests for #40 — compression must never emit an unsendable history.
+
+    Anthropic and Google route `SystemPromptPart`s into a top-level `system` parameter
+    rather than the message list, so a history built only from system parts maps to zero
+    provider messages: an `IndexError` under `anthropic_cache_messages`, a 400 otherwise.
+    """
+
+    @pytest.mark.anyio
+    async def test_summary_is_user_visible(self):
+        """The summary lands in a UserPromptPart, never only in the system channel."""
+        processor = _summarizing_processor(("messages", 4))
+        result = await processor.process(_build_summarizable_messages(count=6))
+
+        assert result.summarized is True
+        summary_parts = [
+            p for p in _user_visible_parts(result.messages) if isinstance(p, UserPromptPart)
+        ]
+        assert any("SUMMARY" in str(p.content) for p in summary_parts)
+        assert not any(
+            isinstance(p, SystemPromptPart) and "SUMMARY" in p.content
+            for m in result.messages
+            if isinstance(m, ModelRequest)
+            for p in m.parts
+        )
+
+    @pytest.mark.anyio
+    async def test_zero_keep_with_nothing_preserved_still_maps_to_a_message(self):
+        """History ending in a response leaves no tail, so the summary carries the turn."""
+        messages = _build_summarizable_messages(count=3)
+        assert isinstance(messages[-1], ModelResponse)
+
+        result = await _summarizing_processor(("messages", 0)).process(messages)
+
+        assert result.summarized is True
+        assert len(result.messages) == 1
+        assert _user_visible_parts(result.messages)
+
+    @pytest.mark.anyio
+    async def test_zero_keep_preserves_pending_tool_exchange(self):
+        """Keep-0 must not swallow the tool returns the model was about to act on."""
+        messages: list[ModelMessage] = [
+            *_build_summarizable_messages(count=3),
+            ModelResponse(
+                parts=[ToolCallPart(tool_name="read_file", args="{}", tool_call_id="t1")]
+            ),
+            ModelRequest(
+                parts=[ToolReturnPart(tool_name="read_file", content="data", tool_call_id="t1")]
+            ),
+        ]
+
+        result = await _summarizing_processor(("messages", 0)).process(messages)
+
+        assert result.summarized is True
+        assert result.messages[-2:] == messages[-2:]
+
+    @pytest.mark.anyio
+    async def test_zero_keep_preserves_pending_user_prompt(self):
+        """The new user prompt is in-flight too — summarizing it leaves nothing to answer."""
+        messages: list[ModelMessage] = [
+            *_build_summarizable_messages(count=3),
+            ModelRequest(parts=[UserPromptPart(content="the actual question")]),
+        ]
+
+        result = await _summarizing_processor(("messages", 0)).process(messages)
+
+        assert result.summarized is True
+        assert result.messages[-1] == messages[-1]

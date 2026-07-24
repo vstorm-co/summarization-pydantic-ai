@@ -264,7 +264,15 @@ class ContextManagerCapability(AbstractCapability[Any]):
     """Max token budget. None = auto-detect from model via genai-prices (default 200K fallback)."""
 
     compress_threshold: float = 0.9
+
     keep: ContextSize = ("messages", 0)
+    """How much of the tail to preserve after compression.
+
+    The default keeps nothing beyond the in-flight request — the pending tool returns
+    or the new user prompt the imminent model call is about — so only the summary and
+    that exchange survive.
+    """
+
     summarization_model: ModelType = "openai:gpt-4.1-mini"
     token_counter: TokenCounter = field(default=count_tokens_approximately)
     summary_prompt: str = DEFAULT_SUMMARY_PROMPT

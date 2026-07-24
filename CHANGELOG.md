@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-24
+
+### Fixed
+
+- **Compression no longer produces a history that providers reject** ([#40](https://github.com/vstorm-co/summarization-pydantic-ai/issues/40), reported by [@drcrallen](https://github.com/drcrallen)). `execute_plan` emitted the summary as a `SystemPromptPart`, so with `keep=("messages", 0)` — the `ContextManagerCapability` default — the rebuilt history was a single `ModelRequest` whose parts were all system parts. Anthropic and Google route system parts into a top-level `system` parameter instead of the message list, so that history mapped to *zero* provider messages: an `IndexError` in pydantic-ai's `_apply_message_cache_control` under `anthropic_cache_messages`, and a hard 400 without it. The failure was deterministic for any run long enough to cross the compression threshold. The summary is now carried by a `UserPromptPart`, so a compressed history always maps to at least one provider message on every provider.
+- **A zero `keep` no longer summarizes away the in-flight request.** Compression runs in `before_model_request` on the full history, which includes the request that triggered the call. At `keep=("messages", 0)` that request — carrying the pending tool returns, or the new user prompt — was folded into the summary along with everything else, so the model was asked to act with the data (or the question) removed. `find_safe_cutoff` gained a `keep_in_flight_request` flag, set by `SummarizationProcessor`, that holds a trailing `ModelRequest` back and lets the existing tool-pair check pull its matching `ToolCallPart` across the cutoff with it. `SlidingWindowProcessor` leaves the flag off: with no summary to fall back on, a zero keep stays the no-op established in 0.1.10.
+- **Summaries no longer accumulate in the system channel.** `_extract_system_prompts` carries every leading `SystemPromptPart` into the compressed message, so a summary stored as a system part was re-extracted on the next compression and kept next to the new one — one stale copy per compression, growing without bound for the life of the conversation. Keeping the summary in a `UserPromptPart` stops the extraction walk at the summary.
+
+### Changed
+
+- **The generated summary is now a `UserPromptPart`, not a `SystemPromptPart`.** Code that reads the summary back out of a compressed history by scanning for `SystemPromptPart` needs to look for `UserPromptPart` instead. The carried-over system prompts are unaffected: they still lead the rebuilt `ModelRequest`.
+
 ## [0.1.10] - 2026-06-25
 
 ### Fixed

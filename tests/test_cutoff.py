@@ -369,16 +369,45 @@ class TestAsyncCountTokens:
 
 
 class TestFindSafeCutoffZeroKeep:
-    """Tests for find_safe_cutoff with messages_to_keep == 0."""
+    """Tests for find_safe_cutoff with messages_to_keep == 0.
 
-    def test_zero_keep_returns_length(self):
-        """messages_to_keep=0 means summarize everything."""
+    Without `keep_in_flight_request` a zero keep cuts everything — the sliding window
+    relies on that to detect the config and no-op (#35). Summarization opts in, so the
+    in-flight request survives the cut (#40).
+    """
+
+    def test_zero_keep_cuts_everything_by_default(self):
         msgs = _make_messages(5)
         assert find_safe_cutoff(msgs, 0) == 5
+
+    def test_zero_keep_preserves_trailing_request(self):
+        """The in-flight request is never summarized away (#40)."""
+        msgs = _make_messages(5)
+        assert isinstance(msgs[-1], ModelRequest)
+        assert find_safe_cutoff(msgs, 0, keep_in_flight_request=True) == 4
+
+    def test_zero_keep_cuts_everything_after_a_response(self):
+        """With no in-flight request there is nothing to hold back."""
+        msgs = _make_messages(6)
+        assert isinstance(msgs[-1], ModelResponse)
+        assert find_safe_cutoff(msgs, 0, keep_in_flight_request=True) == 6
+
+    def test_zero_keep_holds_back_the_whole_tool_exchange(self):
+        """A pending tool return drags its ToolCallPart back across the cutoff."""
+        msgs = [*_make_messages(4), *_make_tool_pair("call-1")]
+        cutoff = find_safe_cutoff(msgs, 0, keep_in_flight_request=True)
+        assert cutoff == 4
+        assert is_safe_cutoff_point(msgs, cutoff)
+
+    def test_zero_keep_single_request_is_not_compressed(self):
+        """Nothing has been seen by the model yet, so there is nothing to summarize."""
+        msgs: list[ModelMessage] = [ModelRequest(parts=[UserPromptPart(content="q")])]
+        assert find_safe_cutoff(msgs, 0, keep_in_flight_request=True) == 0
 
     def test_zero_keep_empty_messages(self):
         """messages_to_keep=0 with empty list returns 0."""
         assert find_safe_cutoff([], 0) == 0
+        assert find_safe_cutoff([], 0, keep_in_flight_request=True) == 0
 
 
 class TestAsyncDetermineCutoffIndex:

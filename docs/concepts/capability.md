@@ -41,7 +41,7 @@ guides the summary to prioritize specific topics.
 |-----------|---------|-------------|
 | `max_tokens` | `None` | Token budget. When `None`, it is auto-detected from the model via `genai-prices` on the first run, falling back to `200_000` if detection fails. |
 | `compress_threshold` | `0.9` | Fraction of `max_tokens` at which auto-compression fires. Must satisfy `0 < x <= 1` (validated in `__post_init__`). |
-| `keep` | `("messages", 0)` | How much of the tail to preserve after compression. The default of `0` means only the generated summary survives. |
+| `keep` | `("messages", 0)` | How much of the tail to preserve after compression. The default of `0` keeps nothing beyond the in-flight request — the pending tool returns or the new user prompt the imminent model call is about — so only the summary and that exchange survive. |
 | `summarization_model` | `"openai:gpt-4.1-mini"` | Model used to generate the summary. |
 | `token_counter` | `count_tokens_approximately` | Callable used to measure context size. Sync or async ([`TokenCounter`][pydantic_ai_summarization.types.TokenCounter]). |
 | `summary_prompt` | `DEFAULT_SUMMARY_PROMPT` | Prompt template used when summarizing. |
