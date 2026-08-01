@@ -19,6 +19,26 @@
 
 ---
 
+!!! info "Upstreamed to `pydantic-ai-harness`"
+    Working together with the Pydantic team, we moved this library's functionality into the official
+    [pydantic-ai-harness](https://github.com/pydantic/pydantic-ai-harness) — it now lives in
+    [`pydantic_ai_harness/compaction`](https://github.com/pydantic/pydantic-ai-harness/tree/main/pydantic_ai_harness/compaction)
+    ([PR #465](https://github.com/pydantic/pydantic-ai-harness/pull/465), merged).
+
+    **For new projects, use the harness.** This library stays on PyPI and keeps working for everyone
+    already depending on it. See the [README](https://github.com/vstorm-co/summarization-pydantic-ai#readme)
+    for a mapping from each processor here to its harness capability.
+
+    ```python
+    from pydantic_ai import Agent
+    from pydantic_ai_harness.compaction import SummarizingCompaction
+
+    agent = Agent(
+        "anthropic:claude-sonnet-4-6",
+        capabilities=[SummarizingCompaction(max_fraction=0.9, keep_messages=20)],
+    )
+    ```
+
 !!! tip "Part of Pydantic Deep Agents"
     **Summarization for Pydantic AI** is one library in [Pydantic Deep Agents](https://github.com/vstorm-co/pydantic-deepagents) — the open-source
     Claude Code alternative & Python agent framework. Use it standalone, or get every
