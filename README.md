@@ -34,6 +34,41 @@
 
 ---
 
+> ### ⬆️ Upstreamed to `pydantic-ai-harness`
+>
+> Working together with the Pydantic team, we moved this library's functionality into the official
+> **[pydantic-ai-harness](https://github.com/pydantic/pydantic-ai-harness)** — it now lives in
+> [`pydantic_ai_harness/compaction`](https://github.com/pydantic/pydantic-ai-harness/tree/main/pydantic_ai_harness/compaction)
+> ([PR #465](https://github.com/pydantic/pydantic-ai-harness/pull/465), merged).
+>
+> **For new projects, use the harness** — it is maintained by Pydantic alongside Pydantic AI itself, and the
+> compaction strategies there have moved past what this library does (see the mapping below). This repository
+> stays on PyPI and keeps working for everyone already depending on it.
+>
+> ```python
+> from pydantic_ai import Agent
+> from pydantic_ai_harness.compaction import SummarizingCompaction
+>
+> agent = Agent(
+>     "anthropic:claude-sonnet-4-6",
+>     capabilities=[SummarizingCompaction(max_fraction=0.9, keep_messages=20)],
+> )
+> ```
+>
+> | This library | In `pydantic_ai_harness.compaction` |
+> |---|---|
+> | `SummarizationProcessor` / `create_summarization_processor()` | `SummarizingCompaction` |
+> | `SlidingWindowProcessor` / `create_sliding_window_processor()` | `SlidingWindowCompaction` |
+> | `LimitWarnerCapability` / `create_limit_warner_processor()` | `WarnNearLimits` |
+> | `ContextManagerCapability` | `TieredCompaction` (cheap passes first, summary only if still over budget) |
+> | Tool-output truncation | `ClampOversizedMessages`, `ClearToolResults` |
+> | `on_context_update` token tracking | `ReportContextUsage` |
+> | `compact_conversation` tool / guided compaction | `compact_now()`, `SummarizingCompaction.with_focus()` |
+> | `("fraction", 0.8)` trigger | `max_fraction=0.8`, resolved per request against the model's real context window |
+>
+> The harness also adds `DeduplicateFileReads` (blanks file reads superseded by a newer read of the same file),
+> which has no equivalent here.
+
 > **Part of [Pydantic Deep Agents](https://github.com/vstorm-co/pydantic-deepagents)** — the open-source Claude Code alternative & Python agent framework. Use this library standalone, or get everything wired together in one `create_deep_agent()` call.
 
 **Summarization for Pydantic AI** keeps your [Pydantic AI](https://ai.pydantic.dev/) agents running through long conversations without ever exceeding model context limits. Choose intelligent LLM summarization or zero-cost sliding-window trimming — both preserve tool-call pairs.
