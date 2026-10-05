@@ -5,7 +5,7 @@ description = "Automatic Conversation Summarization and History Management for P
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-authors = [{ name = "VStorm" }]
+authors = [{ name = "Vstorm" }]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -45,6 +45,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/vstorm-co/summarization-pydantic-ai"
+Documentation = "https://vstorm-co.github.io/summarization-pydantic-ai/"
 Repository = "https://github.com/vstorm-co/summarization-pydantic-ai"
 Issues = "https://github.com/vstorm-co/summarization-pydantic-ai/issues"
 
