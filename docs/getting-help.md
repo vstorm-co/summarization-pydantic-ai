@@ -52,7 +52,7 @@ summarization-pydantic-ai is built on Pydantic AI. Their documentation is an exc
 
 ### Related Projects
 
-- [pydantic-deep](https://github.com/vstorm-co/pydantic-deep) - Full agent framework
+- [pydantic-deep](https://github.com/vstorm-co/pydantic-deepagents) - Full agent framework
 - [pydantic-ai-backend](https://github.com/vstorm-co/pydantic-ai-backend) - File storage backends
 - [pydantic-ai-todo](https://github.com/vstorm-co/pydantic-ai-todo) - Task planning toolset
 
